@@ -6,8 +6,6 @@ export default function HomePage() {
   const [sections, setSections] = useState([]);
   const [openIndex, setOpenIndex] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false); // Toggle form visibility
-  const [slidePage, setSlidePage] = useState(false); // Trigger page sliding effect
 
   useEffect(() => {
     fetch("/api/sections")
@@ -22,17 +20,6 @@ export default function HomePage() {
       });
   }, []);
 
-  // Scroll to the form when it is shown
-  useEffect(() => {
-    if (showForm) {
-      window.scrollTo({
-        top: document.body.scrollHeight,
-        behavior: "smooth",
-      });
-      setSlidePage(true); // Trigger the page slide effect
-    }
-  }, [showForm]);
-
   if (loading) {
     return (
       <div className="splash-screen">
@@ -43,9 +30,9 @@ export default function HomePage() {
 
   return (
     <main className="main-container">
-      <div className={`page-content ${slidePage ? "slide-up" : ""}`}>
+      <div className={"page-content"}>
         <h1>Agent Web Services - DSM</h1>
-
+        <h2>Your Trusted Partner for Process Serving</h2>
         <div className="sections-row">
           {sections.map((section, index) => (
             <div key={index} className="section-panel">
