@@ -5,21 +5,30 @@ import Link from "next/link";
 export default function HomePage() {
   const [sections, setSections] = useState([]);
   const [openIndex, setOpenIndex] = useState(null);
-  const [loading, setLoading] = useState(true);
-
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [isTimerDone, setIsTimerDone] = useState(false);
   useEffect(() => {
+    // Fetch data
     fetch("/api/sections")
       .then((res) => res.json())
       .then((data) => {
         setSections(data);
-        setLoading(false);
+        setIsDataLoaded(true);
       })
       .catch((err) => {
         console.error(err);
-        setLoading(false);
+        setIsDataLoaded(true); // still proceed even if there's an error
       });
+
+    // Minimum splash screen duration
+    const timer = setTimeout(() => {
+      setIsTimerDone(true);
+    }, 2000);
+
+    return () => clearTimeout(timer);
   }, []);
 
+  const loading = !isDataLoaded || !isTimerDone;
   if (loading) {
     return (
       <div className="splash-screen">

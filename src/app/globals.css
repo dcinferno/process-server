@@ -252,7 +252,34 @@ html, body, #__next {
   font-size: 12px;
   margin-top: 5px;
 }
+/* Smaller splash screen title on tablets */
+@media (max-width: 768px) {
+  .splash-title {
+    font-size: 1.75rem;
+    padding: 0 1rem;
+    text-align: center;
+  }
+}
 
+/* Even smaller splash screen title on phones */
+@media (max-width: 480px) {
+  .splash-title {
+    font-size: 1.25rem;
+    padding: 0 1rem;
+    text-align: center;
+  }
+}
+@media (max-width: 768px) {
+  .splash-screen {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .splash-screen {
+    padding: 0.5rem;
+  }
+}
 /* Fade-out animation */
 @keyframes fadeOut {
   to {
