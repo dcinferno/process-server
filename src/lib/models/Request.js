@@ -7,8 +7,7 @@ const RequestSchema = new mongoose.Schema({
   phone: String,
   recipientName: String,
   recipientAddress: String,
-  serviceType: String,
-  deliverySpeed: String,
+  priority: String,
   status: {
     type: String,
     default: "pending",
