@@ -1,26 +1,110 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Ensure body and html take full height and have ocean blue background */
+html, body, #__next {
+  height: 100%;
+  margin: 0;
+  background: linear-gradient(135deg, #0077be 0%, #00aaff 50%, #005f8a 100%);
+  color: white;
+  font-family: Arial, sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Center content vertically and horizontally on homepage */
+.main-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 2rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Default (desktop) */
+.main-container h1 {
+  font-size: 4rem;
+  margin: 0;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Smaller on tablets */
+@media (max-width: 768px) {
+  .main-container h1 {
+    font-size: 2.5rem;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Even smaller on mobile phones */
+@media (max-width: 480px) {
+  .main-container h1 {
+    font-size: 2rem;
+  }
 }
+
+
+
+.splash-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0077be 0%, #00aaff 50%, #005f8a 100%);
+  color: white;
+  height: 100vh;
+  width: 100vw;
+  font-size: 2rem;
+  font-family: sans-serif;
+  letter-spacing: 0.1em; /* optional: to space out letters */
+  animation: fadeOut 1s ease-in-out forwards;
+  animation-delay: 1.5s;
+}
+
+
+.splash-title {
+  animation: scaleUp 1.2s ease-in-out;
+}
+
+/* Container that holds all the sections side by side */
+.sections-row {
+  display: flex;
+  flex-wrap: wrap; /* Wrap to next line on smaller screens */
+  justify-content: center;
+  gap: 2rem;
+  padding: 2rem;
+}
+
+/* Individual section panel */
+.section-panel {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 1.5rem;
+  width: 300px;
+  color: #e0f7ff;
+  transition: transform 0.2s ease;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.section-panel:hover {
+  transform: translateY(-5px);
+}
+
+/* optional fade-out animation */
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@keyframes scaleUp {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
