@@ -12,6 +12,12 @@ function getJwtSecretKey() {
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
 
+  // Allow access to the user creation page
+  if (pathname === "/admin/users/create") {
+    return NextResponse.next();
+  }
+
+  // Protect other /admin routes
   if (pathname.startsWith("/admin")) {
     const token = request.cookies.get("admin-auth")?.value;
 

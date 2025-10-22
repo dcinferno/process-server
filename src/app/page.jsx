@@ -41,7 +41,9 @@ export default function HomePage() {
     <main className="main-container">
       <div className={"page-content"}>
         <h1>Agent Web Services - DSM</h1>
-        <h2>Your Trusted Partner for Process Serving</h2>
+        <h2>
+          Your Trusted Partner for Process Serving in Greater Des Moines Area
+        </h2>
         <div className="sections-row">
           {sections.map((section, index) => (
             <div key={index} className="section-panel">
