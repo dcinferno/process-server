@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const UserSchema = new mongoose.Schema({
   name: String,
-  email: String,
+  email: { type: String, unique: true },
   passwordHash: String, // store hashed password here
 });
 
