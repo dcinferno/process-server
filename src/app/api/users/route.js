@@ -32,6 +32,14 @@ export async function POST(request) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
 
+  const existingUser = await User.findOne({ email });
+  if (existingUser) {
+    return NextResponse.json(
+      { error: "Email already in use" },
+      { status: 409 }
+    );
+  }
+
   const passwordHash = await hashPassword(password);
 
   const user = new User({ name, email, passwordHash });
