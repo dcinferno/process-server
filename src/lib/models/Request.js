@@ -16,6 +16,10 @@ const RequestSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  emailSent: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 export default mongoose.models.Request ||

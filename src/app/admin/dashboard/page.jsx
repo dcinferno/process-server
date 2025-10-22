@@ -1,4 +1,6 @@
-import React from "react";
+import { connectDB } from "../../../lib/db";
+import User from "../../../lib/models/User";
+import Request from "../../../lib/models/Request";
 import {
   Card,
   CardContent,
@@ -6,27 +8,41 @@ import {
   CardTitle,
 } from "../../../components/ui/card";
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  await connectDB();
+
+  const totalUsers = await User.countDocuments();
+  const openRequests = await Request.find({ status: "pending" })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  const revenue = 5400; // Placeholder
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Total Users</CardTitle>
-        </CardHeader>
-        <CardContent>123</CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Revenue</CardTitle>
-        </CardHeader>
-        <CardContent>$5,400</CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Open Orders</CardTitle>
-        </CardHeader>
-        <CardContent>17</CardContent>
-      </Card>
+    <div className="space-y-8">
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Total Users</CardTitle>
+          </CardHeader>
+          <CardContent>{totalUsers}</CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Revenue</CardTitle>
+          </CardHeader>
+          <CardContent>${revenue.toLocaleString()}</CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Open Requests</CardTitle>
+          </CardHeader>
+          <CardContent>{openRequests.length}</CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -4,6 +4,9 @@ import Request from "../../../lib/models/Request.js";
 export async function POST(req) {
   try {
     const body = await req.json();
+    if (body.website) {
+      return new Response(JSON.stringify({ success: false }), { status: 400 });
+    }
     await connectDB();
     const newRequest = await Request.create(body);
 
