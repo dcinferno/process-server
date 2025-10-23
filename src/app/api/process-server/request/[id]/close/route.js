@@ -25,7 +25,7 @@ export async function POST(request, { params }) {
 
     await connectDB();
 
-    const { id } = params;
+    const { id } = await params;
 
     const reqRecord = await Request.findById(id);
     if (!reqRecord) {
