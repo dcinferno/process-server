@@ -11,8 +11,13 @@ function getJwtSecretKey() {
 }
 
 export async function POST(req) {
-  const { email, password } = await req.json();
-
+  const { email, password, address } = await req.json();
+  if (address && address.trim() !== "") {
+    return new Response(JSON.stringify({ error: "Login failed" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
   if (!email || !password) {
     return new Response(
       JSON.stringify({ error: "Email and password are required" }),

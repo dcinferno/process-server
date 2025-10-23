@@ -6,7 +6,7 @@ module.exports = {
   },
   testTimeout: 15000,
   transformIgnorePatterns: [
-    "/node_modules/(?!(mongodb-memory-server|bson|mongodb|@testing-library|dom-accessibility-api)/)",
+    "/node_modules/(?!(mongodb-memory-server|bson|mongodb|@testing-library|dom-accessibility-api|jose)/)",
   ],
   moduleFileExtensions: ["mjs", "js", "jsx", "ts", "tsx"],
   setupFilesAfterEnv: [
