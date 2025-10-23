@@ -1,12 +1,18 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { FaUserShield } from "react-icons/fa";
 
 export default function HomePage() {
+  const router = useRouter();
   const [sections, setSections] = useState([]);
   const [openIndex, setOpenIndex] = useState(null);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [isTimerDone, setIsTimerDone] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
+
   useEffect(() => {
     // Fetch data
     fetch("/api/sections")
@@ -38,40 +44,67 @@ export default function HomePage() {
   }
 
   return (
-    <main className="main-container">
-      <div className={"page-content"}>
-        <h1>Agent Web Services - DSM</h1>
-        <h2>
-          Your Trusted Partner for Process Serving in Greater Des Moines Area
-        </h2>
-        <div className="sections-row">
-          {sections.map((section, index) => (
-            <div key={index} className="section-panel">
-              <button
-                className="section-header"
-                onClick={() => setOpenIndex(openIndex === index ? null : index)}
-              >
-                {section.title}
-                <span className={`arrow ${openIndex === index ? "open" : ""}`}>
-                  &#9660;
-                </span>
-              </button>
+    <>
+      <main className="main-container">
+        <div className={"page-content"}>
+          <h1>Agent Web Services - DSM</h1>
+          <h2>
+            Your Trusted Partner for Process Serving in Greater Des Moines Area
+          </h2>
+          <div className="sections-row">
+            {sections.map((section, index) => (
+              <div key={index} className="section-panel">
+                <button
+                  className="section-header"
+                  onClick={() =>
+                    setOpenIndex(openIndex === index ? null : index)
+                  }
+                >
+                  {section.title}
+                  <span
+                    className={`arrow ${openIndex === index ? "open" : ""}`}
+                  >
+                    &#9660;
+                  </span>
+                </button>
 
-              {openIndex === index && (
-                <div
-                  className="section-content"
-                  dangerouslySetInnerHTML={{ __html: section.content }}
-                />
-              )}
-            </div>
-          ))}
+                {openIndex === index && (
+                  <div
+                    className="section-content"
+                    dangerouslySetInnerHTML={{ __html: section.content }}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Request Services Button */}
+          <Link href="/request">
+            <button className="request-button">Request Services</button>
+          </Link>
         </div>
+      </main>
 
-        {/* 👉 Show form button */}
-        <Link href="/request">
-          <button className="request-button">Request Services</button>
-        </Link>
-      </div>
-    </main>
+      {/* Floating Process Server Login Icon */}
+      <button
+        aria-label="Process Server Login"
+        onClick={() => router.push("/process-server")}
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+        className="fixed bottom-6 right-6 z-50 bg-blue-600 text-white p-3 rounded-full shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+      >
+        <FaUserShield size={24} />
+      </button>
+
+      {/* Tooltip */}
+      {showTooltip && (
+        <div
+          className="fixed bottom-16 right-6 bg-gray-900 text-white text-xs rounded px-2 py-1 shadow-lg"
+          role="tooltip"
+        >
+          Process Server Login
+        </div>
+      )}
+    </>
   );
 }
