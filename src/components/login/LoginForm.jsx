@@ -35,7 +35,7 @@ export default function LoginForm() {
         router.push(callbackUrl);
       } else if (data.role === "admin") {
         router.push("/admin");
-      } else if (data.role === "process-server") {
+      } else if (data.role === "process-server" && data.role === "admin") {
         router.push("/process-server");
       } else {
         router.push("/");
