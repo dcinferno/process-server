@@ -1,26 +1,59 @@
 "use client";
 
-import React, { useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import React, { useState } from "react";
 
 export default function ProcessServerPage({ openRequests, closedRequests }) {
-  const searchParams = useSearchParams();
+  // Local state for requests to allow UI updates after actions
+  const [openReqs, setOpenReqs] = useState(openRequests);
+  const [closedReqs, setClosedReqs] = useState(closedRequests);
 
-  useEffect(() => {
-    const emailSent = searchParams.get("emailSent");
-    const emailFailed = searchParams.get("emailFailed");
-    const closed = searchParams.get("closed");
+  // Send email handler
+  async function handleSendEmail(id) {
+    try {
+      const res = await fetch(`/api/process-server/request/${id}/send-email`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        alert("Email sent successfully!");
 
-    if (emailSent === "true") {
-      alert("Email sent successfully!");
+        // Optionally update the state to mark emailSent true
+        setOpenReqs((prev) =>
+          prev.map((req) =>
+            req._id === id ? { ...req, emailSent: true } : req
+          )
+        );
+      } else {
+        const data = await res.json();
+        alert("Failed to send email: " + (data.error || "Unknown error"));
+      }
+    } catch (err) {
+      alert("Error sending email: " + err.message);
     }
-    if (emailFailed === "true") {
-      alert("Failed to send email.");
+  }
+
+  // Close request handler
+  async function handleCloseRequest(id) {
+    try {
+      const res = await fetch(`/api/process-server/request/${id}/close`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        alert("Request closed successfully!");
+
+        // Move request from open to closed
+        setOpenReqs((prev) => prev.filter((req) => req._id !== id));
+        const closedReq = openReqs.find((req) => req._id === id);
+        if (closedReq) {
+          setClosedReqs((prev) => [...prev, { ...closedReq, closed: true }]);
+        }
+      } else {
+        const data = await res.json();
+        alert("Failed to close request: " + (data.error || "Unknown error"));
+      }
+    } catch (err) {
+      alert("Error closing request: " + err.message);
     }
-    if (closed === "true") {
-      alert("Request closed successfully!");
-    }
-  }, [searchParams]);
+  }
 
   const renderTable = (requests, title, showActions) => (
     <div className="mb-10">
@@ -75,29 +108,15 @@ export default function ProcessServerPage({ openRequests, closedRequests }) {
                   </td>
                   {showActions && (
                     <td className="py-3 px-4 text-sm space-x-3">
-                      <a
-                        href={`/process-server/request/${req._id}/email`}
-                        className="text-blue-600 hover:underline"
+                      <button
+                        onClick={() => handleSendEmail(req._id)}
+                        className="text-blue-600 hover:underline cursor-pointer bg-transparent border-none p-0"
                       >
                         {req.emailSent ? "Resend" : "Email"}
-                      </a>
+                      </button>
                       <button
-                        onClick={async () => {
-                          const res = await fetch(
-                            `/process-server/request/${req._id}/close`,
-                            {
-                              method: "POST",
-                            }
-                          );
-                          if (res.ok) {
-                            // Refresh the page client-side
-                            window.location.href =
-                              "/process-server?closed=true";
-                          } else {
-                            alert("Failed to close request.");
-                          }
-                        }}
-                        className="text-red-600 hover:underline"
+                        onClick={() => handleCloseRequest(req._id)}
+                        className="text-red-600 hover:underline cursor-pointer bg-transparent border-none p-0"
                       >
                         Close
                       </button>
@@ -115,9 +134,8 @@ export default function ProcessServerPage({ openRequests, closedRequests }) {
   return (
     <main className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-10">
       <div className="bg-white text-black min-h-screen p-4 max-w-4xl mx-auto">
-        {renderTable(openRequests, "Open Requests", true)}
-
-        {renderTable(closedRequests, "Closed Requests", false)}
+        {renderTable(openReqs, "Open Requests", true)}
+        {renderTable(closedReqs, "Closed Requests", false)}
       </div>
     </main>
   );

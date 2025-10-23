@@ -1,8 +1,8 @@
-const nodemailer = require("nodemailer");
+import nodemailer from "nodemailer";
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT || "587"),
+  port: parseInt(process.env.SMTP_PORT || "587", 10),
   secure: false, // true for port 465, false for 587
   auth: {
     user: process.env.SMTP_USER,
@@ -10,7 +10,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-async function sendMagicLinkEmail(email, magicLink, clientName) {
+export async function sendMagicLinkEmail(email, magicLink, clientName) {
   const mailOptions = {
     from: '"Agent Web Services - DSM" <no-reply@agentwebservices.com>',
     to: email,
@@ -25,8 +25,8 @@ async function sendMagicLinkEmail(email, magicLink, clientName) {
 
   const info = await transporter.sendMail(mailOptions);
 
-  console.log("Email sent:", info.messageId);
-  console.log("Preview URL:", nodemailer.getTestMessageUrl(info)); // if using Ethereal
+  if (process.env.NODE_ENV === "development") {
+    console.log("Email sent:", info.messageId);
+    console.log("Preview URL:", nodemailer.getTestMessageUrl(info)); // Ethereal preview link only in dev
+  }
 }
-
-module.exports = { sendMagicLinkEmail };
