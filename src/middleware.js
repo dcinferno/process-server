@@ -10,51 +10,58 @@ function getJwtSecretKey() {
 
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
+  const token = request.cookies.get("auth-token")?.value;
+
+  // Helper: redirect to login with callbackUrl
+  const redirectToLogin = () => {
+    const loginUrl = new URL(
+      `/login?callbackUrl=${encodeURIComponent(pathname)}`,
+      request.url
+    );
+    return NextResponse.redirect(loginUrl);
+  };
 
   // Allow access to user creation page
   if (pathname === "/admin/users/create") {
     return NextResponse.next();
   }
 
-  // Protect /admin routes
-  if (pathname.startsWith("/admin")) {
-    const token = request.cookies.get("auth-token")?.value;
-
-    if (!token) {
-      return NextResponse.redirect(new URL("/login", request.url));
-    }
-
+  // Verify JWT if present
+  if (token) {
     try {
       const { payload } = await jwtVerify(token, getJwtSecretKey());
-      if (payload.role !== "admin") {
-        return NextResponse.redirect(new URL("/login", request.url));
+
+      // Protect /admin routes
+      if (pathname.startsWith("/admin")) {
+        if (payload.role !== "admin") {
+          return redirectToLogin();
+        }
       }
+
+      // Protect /process-server routes
+      if (pathname.startsWith("/process-server")) {
+        if (payload.role !== "process-server" && payload.role !== "admin") {
+          return redirectToLogin();
+        }
+      }
+
+      // Everything OK
+      return NextResponse.next();
     } catch {
-      return NextResponse.redirect(new URL("/login", request.url));
+      // Invalid or expired token
+      return redirectToLogin();
     }
   }
 
-  // Protect /process-server routes
-  if (pathname.startsWith("/process-server")) {
-    const token = request.cookies.get("auth-token")?.value;
-
-    if (!token) {
-      return NextResponse.redirect(new URL("/login", request.url));
-    }
-
-    try {
-      const { payload } = await jwtVerify(token, getJwtSecretKey());
-      if (payload.role !== "process-server" && payload.role !== "admin") {
-        return NextResponse.redirect(new URL("/login", request.url));
-      }
-    } catch {
-      return NextResponse.redirect(new URL("/login", request.url));
-    }
+  // No token — redirect to login
+  if (pathname.startsWith("/admin") || pathname.startsWith("/process-server")) {
+    return redirectToLogin();
   }
 
   return NextResponse.next();
 }
 
+// Match both admin and process-server routes
 export const config = {
   matcher: ["/admin/:path*", "/process-server/:path*"],
 };

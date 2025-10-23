@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -23,13 +24,15 @@ export default function LoginPage() {
     const data = await res.json();
 
     if (res.ok) {
-      // Redirect based on role returned from the backend
-      if (data.role === "admin") {
+      const callbackUrl = searchParams.get("callbackUrl");
+
+      if (callbackUrl) {
+        router.push(callbackUrl);
+      } else if (data.role === "admin") {
         router.push("/admin");
       } else if (data.role === "process-server") {
         router.push("/process-server");
       } else {
-        // fallback or unknown role
         router.push("/");
       }
     } else {
