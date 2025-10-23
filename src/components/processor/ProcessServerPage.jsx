@@ -81,18 +81,26 @@ export default function ProcessServerPage({ openRequests, closedRequests }) {
                       >
                         {req.emailSent ? "Resend" : "Email"}
                       </a>
-                      <form
-                        method="POST"
-                        action={`/process-server/request/${req._id}/close`}
-                        className="inline"
+                      <button
+                        onClick={async () => {
+                          const res = await fetch(
+                            `/process-server/request/${req._id}/close`,
+                            {
+                              method: "POST",
+                            }
+                          );
+                          if (res.ok) {
+                            // Refresh the page client-side
+                            window.location.href =
+                              "/process-server?closed=true";
+                          } else {
+                            alert("Failed to close request.");
+                          }
+                        }}
+                        className="text-red-600 hover:underline"
                       >
-                        <button
-                          type="submit"
-                          className="text-red-600 hover:underline"
-                        >
-                          Close
-                        </button>
-                      </form>
+                        Close
+                      </button>
                     </td>
                   )}
                 </tr>
