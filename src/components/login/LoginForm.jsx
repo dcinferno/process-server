@@ -1,15 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 export default function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [headerText, setHeaderText] = useState("Agent Login");
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl");
+
+  useEffect(() => {
+    const referrer = document.referrer;
+
+    if (referrer.includes("/process-server")) {
+      setHeaderText("Agent Login (process-server)");
+    } else if (referrer.includes("/admin")) {
+      setHeaderText("Admin Login (/admin)");
+    } else {
+      setHeaderText("Agent Login");
+    }
+  }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -41,9 +55,46 @@ export default function LoginForm() {
 
   return (
     <div className="max-w-md mx-auto mt-12 p-6 bg-white rounded shadow text-gray-900">
-      <h1 className="text-2xl font-bold mb-4">Agent Login</h1>
+      <h1 className="text-2xl font-bold mb-4">{headerText}</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* ...same as before... */}
+        <div>
+          <label className="block font-medium mb-1" htmlFor="email">
+            Email
+          </label>
+          <input
+            id="email"
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full border px-3 py-2 rounded"
+            placeholder="Enter email"
+          />
+        </div>
+
+        <div>
+          <label className="block font-medium mb-1" htmlFor="password">
+            Password
+          </label>
+          <input
+            id="password"
+            type="password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full border px-3 py-2 rounded"
+            placeholder="Enter password"
+          />
+        </div>
+
+        <button
+          type="submit"
+          className="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        >
+          Login
+        </button>
+
+        {error && <p className="text-red-600 mt-2">{error}</p>}
       </form>
     </div>
   );
