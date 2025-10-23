@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 import { connectDB } from "../../../lib/db";
 import User from "../../../lib/models/User";
 import Request from "../../../lib/models/Request";
@@ -16,7 +18,7 @@ export default async function DashboardPage() {
     .sort({ createdAt: -1 })
     .lean();
 
-  const revenue = 5400; // Placeholder
+  const revenue = 0; // Placeholder
 
   return (
     <div className="space-y-8">

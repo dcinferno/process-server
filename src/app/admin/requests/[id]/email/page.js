@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 import { redirect } from "next/navigation";
 import { connectDB } from "../../../../../lib/db";
 import Request from "../../../../../lib/models/Request";

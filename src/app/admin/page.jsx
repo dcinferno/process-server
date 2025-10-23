@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 import AdminPageWrapper from "../../components/admin/AdminPageWrapper";
 import Link from "next/link";
 import { connectDB } from "../../lib/db";

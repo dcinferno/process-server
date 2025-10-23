@@ -15,7 +15,6 @@ if (!cached) {
 }
 
 export async function connectDB() {
-  console.log("🔗 MONGODB_URI in production:", process.env.MONGODB_URI);
   if (cached.conn) {
     return cached.conn;
   }
