@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
 import { redirect } from "next/navigation";
 import { connectDB } from "../../../../../lib/db";
 import Request from "../../../../../lib/models/Request";
@@ -30,10 +31,11 @@ export default async function EmailPage({ params }) {
 
   try {
     await sendMagicLinkEmail(request.email, magicLink, request.clientName);
+    await Request.findByIdAndUpdate(id, { emailSent: true });
   } catch (error) {
     console.error("Error sending email:", error);
     return <div>Failed to send email.</div>;
   }
 
-  redirect("/admin?emailSent=true");
+  redirect("/process-server?emailSent=true");
 }

@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 
-export default function AdminPageWrapper({ children }) {
+export default function ProcessorPageWrapper({ children }) {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -11,7 +11,7 @@ export default function AdminPageWrapper({ children }) {
     if (searchParams.get("emailSent")) {
       alert("Magic link email sent successfully!");
       // Remove the query param without reloading the page
-      router.replace("/admin", { scroll: false });
+      router.replace("/process-server", { scroll: false });
     }
   }, [searchParams, router]);
 

@@ -8,6 +8,7 @@ export default function CreateUserPage() {
   const [password, setPassword] = useState("");
   const [secretKey, setSecretKey] = useState(""); // new field
   const [message, setMessage] = useState("");
+  const [role, setRole] = useState("process-server");
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -66,6 +67,33 @@ export default function CreateUserPage() {
             className="w-full border px-3 py-2 rounded"
           />
         </div>
+        <div>
+          <label className="block mb-1 font-medium">Role</label>
+          <div className="flex space-x-6">
+            <label className="flex items-center space-x-2">
+              <input
+                type="radio"
+                name="role"
+                value="process-server"
+                checked={role === "process-server"}
+                onChange={() => setRole("process-server")}
+              />
+              <span>Process Server</span>
+            </label>
+
+            <label className="flex items-center space-x-2">
+              <input
+                type="radio"
+                name="role"
+                value="admin"
+                checked={role === "admin"}
+                onChange={() => setRole("admin")}
+              />
+              <span>Admin</span>
+            </label>
+          </div>
+        </div>
+
         {/* new secret key input */}
         <div>
           <label className="block mb-1 font-medium">Secret Key</label>

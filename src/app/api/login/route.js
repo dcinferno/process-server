@@ -1,55 +1,69 @@
-import { NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
 import { connectDB } from "../../../lib/db";
 import User from "../../../lib/models/User";
-import { verifyPassword } from "../../../lib/auth";
+import bcrypt from "bcryptjs";
+import { SignJWT } from "jose";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
-export async function POST(request) {
-  await connectDB();
+function getJwtSecretKey() {
+  if (!JWT_SECRET) throw new Error("Missing JWT_SECRET");
+  return new TextEncoder().encode(JWT_SECRET);
+}
 
-  const { email, password } = await request.json();
+export async function POST(req) {
+  const { email, password } = await req.json();
 
   if (!email || !password) {
-    return NextResponse.json(
-      { error: "Email and password are required" },
-      { status: 400 }
+    return new Response(
+      JSON.stringify({ error: "Email and password are required" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }
 
-  const user = await User.findOne({ email });
+  try {
+    await connectDB();
 
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 401 });
-  }
+    const user = await User.findOne({ email }).lean();
 
-  const isValid = await verifyPassword(password, user.passwordHash);
+    if (!user) {
+      return new Response(JSON.stringify({ error: "Invalid credentials" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
-  if (!isValid) {
-    return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
-  }
+    const passwordMatches = await bcrypt.compare(password, user.passwordHash);
 
-  // Create JWT
-  const token = jwt.sign(
-    {
-      id: user._id,
+    if (!passwordMatches) {
+      return new Response(JSON.stringify({ error: "Invalid credentials" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const jwt = await new SignJWT({
+      sub: user._id.toString(),
+      role: user.role,
       email: user.email,
-      name: user.name,
-    },
-    JWT_SECRET,
-    { expiresIn: "2h" }
-  );
+    })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt()
+      .setExpirationTime("2h")
+      .sign(getJwtSecretKey());
 
-  const response = NextResponse.json({ message: "Login successful" });
-
-  response.cookies.set("admin-auth", token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-    path: "/",
-    maxAge: 60 * 60 * 2, // 2 hours
-  });
-
-  return response;
+    // Set cookie header
+    return new Response(JSON.stringify({ role: user.role }), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Set-Cookie": `auth-token=${jwt}; HttpOnly; Path=/; Max-Age=7200; SameSite=Lax; Secure`,
+      },
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 }

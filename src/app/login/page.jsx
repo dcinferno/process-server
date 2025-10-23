@@ -23,7 +23,15 @@ export default function LoginPage() {
     const data = await res.json();
 
     if (res.ok) {
-      router.push("/admin");
+      // Redirect based on role returned from the backend
+      if (data.role === "admin") {
+        router.push("/admin");
+      } else if (data.role === "process-server") {
+        router.push("/process-server");
+      } else {
+        // fallback or unknown role
+        router.push("/");
+      }
     } else {
       setError(data.error || "Login failed");
     }
@@ -31,7 +39,7 @@ export default function LoginPage() {
 
   return (
     <div className="max-w-md mx-auto mt-12 p-6 bg-white rounded shadow text-gray-900">
-      <h1 className="text-2xl font-bold mb-4">Admin Login</h1>
+      <h1 className="text-2xl font-bold mb-4">Agent Login</h1>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>

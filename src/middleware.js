@@ -4,31 +4,50 @@ import { jwtVerify } from "jose";
 const JWT_SECRET = process.env.JWT_SECRET;
 
 function getJwtSecretKey() {
-  const secret = JWT_SECRET;
-  if (!secret) throw new Error("Missing JWT_SECRET");
-  return new TextEncoder().encode(secret);
+  if (!JWT_SECRET) throw new Error("Missing JWT_SECRET");
+  return new TextEncoder().encode(JWT_SECRET);
 }
 
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
 
-  // Allow access to the user creation page
+  // Allow access to user creation page
   if (pathname === "/admin/users/create") {
     return NextResponse.next();
   }
 
-  // Protect other /admin routes
+  // Protect /admin routes
   if (pathname.startsWith("/admin")) {
-    const token = request.cookies.get("admin-auth")?.value;
+    const token = request.cookies.get("auth-token")?.value;
 
     if (!token) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
 
     try {
-      await jwtVerify(token, getJwtSecretKey());
-    } catch (err) {
-      console.error("JWT verification failed:", err);
+      const { payload } = await jwtVerify(token, getJwtSecretKey());
+      if (payload.role !== "admin") {
+        return NextResponse.redirect(new URL("/login", request.url));
+      }
+    } catch {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+  }
+
+  // Protect /process-server routes
+  if (pathname.startsWith("/process-server")) {
+    const token = request.cookies.get("auth-token")?.value;
+
+    if (!token) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+
+    try {
+      const { payload } = await jwtVerify(token, getJwtSecretKey());
+      if (payload.role !== "process-server" && payload.role !== "admin") {
+        return NextResponse.redirect(new URL("/login", request.url));
+      }
+    } catch {
       return NextResponse.redirect(new URL("/login", request.url));
     }
   }
@@ -37,5 +56,5 @@ export async function middleware(request) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/admin/:path*", "/process-server/:path*"],
 };
