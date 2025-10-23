@@ -88,37 +88,15 @@ export default function HomePage() {
       {/* Process Server Login Button */}
       <button
         aria-label="Process Server Login"
-        onClick={() => router.push("/process-server")}
+        onClick={() => router.push("/login?callbackUrl=/process-server")}
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
         className="
-          bg-blue-600 text-white p-3 rounded-full shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400
-          fixed bottom-6 right-6 z-50
-          md:fixed
-          static md:fixed
-        "
-        // Explanation:
-        // On mobile (default): `static` (so it's inline and user scrolls to see it)
-        // On md+ screens: `fixed bottom-6 right-6`
+  bg-blue-600 text-white p-3 rounded-full shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400
+  fixed bottom-6 right-6 z-50"
       >
         <FaUserShield size={24} />
       </button>
-
-      {/* Tooltip */}
-      {showTooltip && (
-        <div
-          className="
-            bg-gray-900 text-white text-xs rounded px-2 py-1 shadow-lg
-            fixed bottom-16 right-6
-            md:fixed
-            static md:fixed
-          "
-          role="tooltip"
-          style={{ maxWidth: "160px" }}
-        >
-          Process Server Login
-        </div>
-      )}
     </>
   );
 }

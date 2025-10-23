@@ -41,7 +41,10 @@ export default function ProcessServerPage({ openRequests, closedRequests }) {
         setOpenReqs((prev) => prev.filter((req) => req._id !== id));
         const closedReq = openReqs.find((req) => req._id === id);
         if (closedReq) {
-          setClosedReqs((prev) => [...prev, { ...closedReq, closed: true }]);
+          setClosedReqs((prev) => [
+            ...prev,
+            { ...closedReq, status: "closed" },
+          ]);
         }
         setModalOpen(false);
       } else {
@@ -65,8 +68,8 @@ export default function ProcessServerPage({ openRequests, closedRequests }) {
     setSelectedRequest(null);
   }
 
-  // Card view for mobile
-  const renderCard = (req, showActions) => (
+  // Card view (mobile)
+  const renderCard = (req) => (
     <div
       key={req._id}
       className="bg-white shadow rounded p-4 mb-4 cursor-pointer"
@@ -74,6 +77,9 @@ export default function ProcessServerPage({ openRequests, closedRequests }) {
     >
       <p>
         <strong>Client:</strong> {req.clientName}
+      </p>
+      <p>
+        <strong>Phone:</strong> {req.phone}
       </p>
       <p>
         <strong>Email:</strong> {req.email}
@@ -90,7 +96,7 @@ export default function ProcessServerPage({ openRequests, closedRequests }) {
     </div>
   );
 
-  // Table view for desktop (your original table)
+  // Table view (desktop)
   const renderTable = (requests, title, showActions) => (
     <div className="hidden md:block mb-10">
       <h2 className="text-2xl font-semibold text-gray-900 mb-4 text-center">
@@ -131,7 +137,8 @@ export default function ProcessServerPage({ openRequests, closedRequests }) {
               {requests.map((req) => (
                 <tr
                   key={req._id}
-                  className="border-b border-gray-200 hover:bg-gray-100 transition"
+                  className="border-b border-gray-200 hover:bg-gray-100 transition cursor-pointer"
+                  onClick={() => openModal(req)}
                 >
                   <td className="py-3 px-4 text-sm">{req.clientName}</td>
                   <td className="py-3 px-4 text-sm break-words">{req.email}</td>
@@ -145,14 +152,20 @@ export default function ProcessServerPage({ openRequests, closedRequests }) {
                   {showActions && (
                     <td className="py-3 px-4 text-sm space-x-3">
                       <button
-                        onClick={() => handleSendEmail(req._id)}
-                        className="text-blue-600 hover:underline cursor-pointer bg-transparent border-none p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSendEmail(req._id);
+                        }}
+                        className="text-blue-600 hover:underline"
                       >
                         {req.emailSent ? "Resend" : "Email"}
                       </button>
                       <button
-                        onClick={() => handleCloseRequest(req._id)}
-                        className="text-red-600 hover:underline cursor-pointer bg-transparent border-none p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCloseRequest(req._id);
+                        }}
+                        className="text-red-600 hover:underline"
                       >
                         Close
                       </button>
@@ -170,7 +183,7 @@ export default function ProcessServerPage({ openRequests, closedRequests }) {
   return (
     <main className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-10">
       <div className="bg-white text-black min-h-screen p-4 max-w-4xl mx-auto">
-        {/* Cards for mobile */}
+        {/* Mobile view */}
         <div className="md:hidden mb-10">
           <h2 className="text-2xl font-semibold text-gray-900 mb-4 text-center">
             Open Requests
@@ -178,11 +191,11 @@ export default function ProcessServerPage({ openRequests, closedRequests }) {
           {openReqs.length === 0 ? (
             <p className="text-center text-gray-600">No open requests found.</p>
           ) : (
-            openReqs.map((req) => renderCard(req, true))
+            openReqs.map((req) => renderCard(req))
           )}
         </div>
 
-        {/* Desktop tables */}
+        {/* Desktop view */}
         {renderTable(openReqs, "Open Requests", true)}
 
         {/* Closed Requests */}
@@ -195,14 +208,14 @@ export default function ProcessServerPage({ openRequests, closedRequests }) {
               No closed requests found.
             </p>
           ) : (
-            closedReqs.map((req) => renderCard(req, false))
+            closedReqs.map((req) => renderCard(req))
           )}
         </div>
 
         {renderTable(closedReqs, "Closed Requests", false)}
       </div>
 
-      {/* Modal */}
+      {/* ✅ Full modal with all Request fields */}
       {modalOpen && selectedRequest && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
@@ -213,45 +226,66 @@ export default function ProcessServerPage({ openRequests, closedRequests }) {
             onClick={(e) => e.stopPropagation()}
           >
             <button
-              className="absolute top-2 right-2 text-gray-600 hover:text-gray-900"
+              className="absolute top-2 right-2 text-gray-600 hover:text-gray-900 text-2xl"
               onClick={closeModal}
             >
               &times;
             </button>
 
-            <h2 className="text-xl font-semibold mb-4">Request Details</h2>
-            <p>
-              <strong>Client:</strong> {selectedRequest.clientName}
-            </p>
-            <p>
-              <strong>Email:</strong> {selectedRequest.email}
-            </p>
-            <p>
-              <strong>Phone:</strong> {selectedRequest.phone}
-            </p>
-            <p>
-              <strong>Priority:</strong> {selectedRequest.priority}
-            </p>
-            <p>
-              <strong>Created:</strong>{" "}
-              {new Date(selectedRequest.createdAt).toLocaleDateString()}
-            </p>
-            <p>
-              <strong>Status:</strong>{" "}
-              {selectedRequest.closed ? "Closed" : "Open"}
-            </p>
+            <h2 className="text-xl font-semibold mb-4 text-center">
+              Request Details
+            </h2>
 
-            {!selectedRequest.closed && (
-              <div className="mt-4 space-x-4">
+            <div className="space-y-2 text-sm">
+              <p>
+                <strong>Client Name:</strong>{" "}
+                {selectedRequest.clientName || "—"}
+              </p>
+              <p>
+                <strong>Email:</strong> {selectedRequest.email || "—"}
+              </p>
+              <p>
+                <strong>Phone:</strong> {selectedRequest.phone || "—"}
+              </p>
+              <p>
+                <strong>Recipient Name:</strong>{" "}
+                {selectedRequest.recipientName || "—"}
+              </p>
+              <p>
+                <strong>Recipient Address:</strong>{" "}
+                {selectedRequest.recipientAddress || "—"}
+              </p>
+              <p>
+                <strong>Priority:</strong> {selectedRequest.priority || "—"}
+              </p>
+              <p>
+                <strong>Status:</strong> {selectedRequest.status || "—"}
+              </p>
+              <p>
+                <strong>Email Sent:</strong>{" "}
+                {selectedRequest.emailSent ? (
+                  <span className="text-green-600 font-semibold">Yes</span>
+                ) : (
+                  <span className="text-red-600 font-semibold">No</span>
+                )}
+              </p>
+              <p>
+                <strong>Created At:</strong>{" "}
+                {new Date(selectedRequest.createdAt).toLocaleString()}
+              </p>
+            </div>
+
+            {selectedRequest.status !== "closed" && (
+              <div className="mt-6 flex justify-center gap-6">
                 <button
                   onClick={() => handleSendEmail(selectedRequest._id)}
-                  className="text-blue-600 hover:underline"
+                  className="text-blue-600 hover:underline font-medium"
                 >
                   {selectedRequest.emailSent ? "Resend Email" : "Send Email"}
                 </button>
                 <button
                   onClick={() => handleCloseRequest(selectedRequest._id)}
-                  className="text-red-600 hover:underline"
+                  className="text-red-600 hover:underline font-medium"
                 >
                   Close Request
                 </button>

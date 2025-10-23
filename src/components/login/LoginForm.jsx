@@ -6,11 +6,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 export default function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [honeypot, setHoneypot] = useState(""); // honeypot field
+  const [honeypot, setHoneypot] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl");
+
+  const rawCallbackUrl = searchParams.get("callbackUrl") || "";
+  const callbackUrl = rawCallbackUrl ? decodeURIComponent(rawCallbackUrl) : "";
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -35,7 +37,7 @@ export default function LoginForm() {
         router.push(callbackUrl);
       } else if (data.role === "admin") {
         router.push("/admin");
-      } else if (data.role === "process-server" && data.role === "admin") {
+      } else if (data.role === "process-server") {
         router.push("/process-server");
       } else {
         router.push("/");
@@ -49,6 +51,7 @@ export default function LoginForm() {
     <div className="max-w-md mx-auto mt-12 p-6 bg-white rounded shadow text-gray-900">
       <h1 className="text-2xl font-bold mb-4">Agent Login</h1>
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        {/* Honeypot field for spam prevention */}
         <input
           type="text"
           name="address"
@@ -70,6 +73,7 @@ export default function LoginForm() {
             className="w-full border rounded p-2 mt-1"
           />
         </label>
+
         <label className="block">
           Password
           <input
