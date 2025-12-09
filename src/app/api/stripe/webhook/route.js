@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import Purchase from "@/models/Purchase";
-import { connectToDB } from "@/lib/mongodb";
+import { connectToDB } from "../../../lib/mongodb";
 
 export const runtime = "nodejs"; // important for raw body
 export const dynamic = "force-dynamic"; // ensures webhook isn't cached
