@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import Purchase from "@/models/Purchase";
-import { connectToDB } from "../../../lib/mongodb";
+import Purchase from "../../../../lib/models/Purchase";
+import { connectToDB } from "../../../../lib/db";
 
 export const runtime = "nodejs"; // important for raw body
 export const dynamic = "force-dynamic"; // ensures webhook isn't cached
@@ -22,7 +22,6 @@ export async function POST(req) {
       process.env.STRIPE_WEBHOOK_SECRET
     );
   } catch (err) {
-    console.error("❌ Invalid Stripe Signature:", err.message);
     return new Response("Invalid signature", { status: 400 });
   }
 
@@ -34,7 +33,6 @@ export async function POST(req) {
     const amount = session.amount_total / 100;
 
     if (!userId || !videoId) {
-      console.error("❌ Metadata missing!");
       return new Response("Missing metadata", { status: 400 });
     }
 
