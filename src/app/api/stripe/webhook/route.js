@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import Purchase from "../../../../lib/models/Purchase";
-import { connectToDB } from "../../../../lib/db";
+import { connectDB } from "../../../../lib/db";
 
 export const runtime = "nodejs"; // important for raw body
 export const dynamic = "force-dynamic"; // ensures webhook isn't cached
@@ -37,7 +37,7 @@ export async function POST(req) {
     }
 
     try {
-      await connectToDB();
+      await connectDB();
 
       await Purchase.findOneAndUpdate(
         { userId, videoId },

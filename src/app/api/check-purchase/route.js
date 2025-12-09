@@ -1,4 +1,4 @@
-import { connectToDB } from "../../../lib/db";
+import { connectDB } from "../../../lib/db";
 import Purchase from "../../../lib/models/Purchase";
 export async function POST(req) {
   try {
@@ -11,7 +11,7 @@ export async function POST(req) {
       );
     }
 
-    await connectToDB();
+    await connectDB();
 
     const purchase = await Purchase.findOne({ userId, videoId });
 
