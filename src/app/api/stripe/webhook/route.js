@@ -30,12 +30,12 @@ async function sendTelegramSaleMessage({
 
   try {
     await fetch(
-      `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+      `https://api.telegram.org/bot${process.env.BOT_TOKEN}/sendMessage`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          chat_id: process.env.TELEGRAM_SALES_GROUP_ID,
+          chat_id: process.env.SALES_GROUP_ID,
           text: message,
           disable_web_page_preview: true,
         }),
