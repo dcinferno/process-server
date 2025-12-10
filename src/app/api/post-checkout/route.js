@@ -1,4 +1,6 @@
 import Stripe from "stripe";
+import { connectDB } from "@/lib/db";
+import Purchase from "@/lib/models/Purchase";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -41,6 +43,16 @@ export async function GET(req) {
 
     const site = session.metadata?.site;
     const videoId = session.metadata?.videoId;
+    const userId = session.metadata?.userId;
+
+    await connectDB();
+
+    // Upsert purchase record
+    await Purchase.findOneAndUpdate(
+      { userId, videoId },
+      { userId, videoId },
+      { upsert: true }
+    );
 
     if (!site || !SITE_MAP[site]) {
       console.error("Unknown site:", site);
