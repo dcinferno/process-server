@@ -1,4 +1,6 @@
 import Stripe from "stripe";
+import { connectDB } from "../../../lib/db";
+
 import Purchase from "../../../lib/models/Purchase";
 
 import { computeFinalPrice } from "../../../lib/calculatePrices";
@@ -29,6 +31,7 @@ export async function POST(req) {
         headers: { "Access-Control-Allow-Origin": allowedOrigin },
       });
     }
+    await connectDB();
 
     // 🔒 Prevent double purchase
     const existingPurchase = await Purchase.findOne({ userId, videoId });
