@@ -3,25 +3,6 @@ import Purchase from "../../../lib/models/Purchase";
 
 import { computeFinalPrice } from "../../../lib/calculatePrices";
 
-// 🔒 Prevent double purchase
-const existingPurchase = await Purchase.findOne({ userId, videoId });
-
-if (existingPurchase) {
-  return new Response(
-    JSON.stringify({
-      error: "Already purchased",
-      purchased: true,
-    }),
-    {
-      status: 409,
-      headers: {
-        "Access-Control-Allow-Origin": allowedOrigin,
-        "Access-Control-Allow-Credentials": "true",
-      },
-    }
-  );
-}
-
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const allowedOrigin = process.env.NEXT_PUBLIC_FRONTEND_URL;
 
@@ -47,6 +28,25 @@ export async function POST(req) {
         status: 400,
         headers: { "Access-Control-Allow-Origin": allowedOrigin },
       });
+    }
+
+    // 🔒 Prevent double purchase
+    const existingPurchase = await Purchase.findOne({ userId, videoId });
+
+    if (existingPurchase) {
+      return new Response(
+        JSON.stringify({
+          error: "Already purchased",
+          purchased: true,
+        }),
+        {
+          status: 409,
+          headers: {
+            "Access-Control-Allow-Origin": allowedOrigin,
+            "Access-Control-Allow-Credentials": "true",
+          },
+        }
+      );
     }
 
     // 🔹 Fetch video from public video-store API
