@@ -45,12 +45,12 @@ export async function GET(req) {
     const videoId = session.metadata?.videoId;
     const userId = session.metadata?.userId;
 
-    await connectDB();
+    const email = session.customer_details?.email;
 
-    // Upsert purchase record
+    // Save purchase
     await Purchase.findOneAndUpdate(
       { userId, videoId },
-      { userId, videoId },
+      { userId, videoId, email }, // store email here
       { upsert: true }
     );
 

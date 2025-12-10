@@ -20,6 +20,7 @@ const PurchaseSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    email: { type: String },
   },
   { timestamps: true }
 );
