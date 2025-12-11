@@ -3,7 +3,7 @@ import Stripe from "stripe";
 import Purchase from "../../../../lib/models/Purchase";
 import { connectDB } from "../../../../lib/db";
 
-export const runtime = "nodejs"; // required for raw body
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -15,25 +15,41 @@ export async function OPTIONS() {
 export async function HEAD() {
   return new Response("OK", { status: 200 });
 }
+
+/**
+ * Format clickable creator tag
+ */
+function formatCreatorTag(creatorName, telegramId, fallbackUrl) {
+  if (telegramId) {
+    // TRUE mention by Telegram user ID
+    return `[${creatorName}](tg://user?id=${telegramId})`;
+  }
+  if (fallbackUrl) {
+    // Use the creator's public Telegram URL
+    return `[${creatorName}](${fallbackUrl})`;
+  }
+  return creatorName;
+}
+
 /**
  * Send sale notification to Telegram group
  */
 async function sendTelegramSaleMessage({
   isTest,
-  creatorName,
+  creatorTag,
   videoId,
   amount,
 }) {
   const header = isTest
-    ? "🚨🚨🚨 TEST TRANSACTION 🚨🚨🚨\n(This is NOT real money)\n\n"
-    : "💰 New Sale\n\n";
+    ? "🚨 *TEST TRANSACTION* 🚨\n_Not real money_\n\n"
+    : "💰 *New Sale!* 💰\n\n";
 
-  const message = `${header}
-🎥 Video ID: ${videoId}
-👤 Creator: ${creatorName}
-💵 Amount: $${amount.toFixed(2)}
-🕒 Time: ${new Date().toLocaleTimeString()}
-`;
+  const message =
+    `${header}` +
+    `🎥 *Video:* ${videoId}\n` +
+    `👤 *Creator:* ${creatorTag}\n` +
+    `💵 *Amount:* $${amount.toFixed(2)}\n` +
+    `🕒 *Time:* ${new Date().toLocaleTimeString()}`;
 
   try {
     const res = await fetch(
@@ -44,6 +60,7 @@ async function sendTelegramSaleMessage({
         body: JSON.stringify({
           chat_id: process.env.SALES_GROUP_ID,
           text: message,
+          parse_mode: "Markdown",
           disable_web_page_preview: true,
         }),
       }
@@ -57,7 +74,7 @@ async function sendTelegramSaleMessage({
     }
   } catch (err) {
     console.error("❌ Telegram notification failed:", err);
-    throw err; // allow webhook retry if Telegram fails
+    throw err; // allow webhook retry
   }
 }
 
@@ -78,17 +95,20 @@ export async function POST(req) {
     return new Response("Invalid signature", { status: 400 });
   }
 
-  // ✅ Only process once per Stripe event
   if (event.type !== "checkout.session.completed") {
     return NextResponse.json({ received: true });
   }
 
-  const isTest = event.livemode === false;
   const session = event.data.object;
+  const isTest = event.livemode === false;
 
   const userId = session.metadata?.userId;
   const videoId = session.metadata?.videoId;
   const creatorName = session.metadata?.creatorName ?? "Unknown";
+
+  const creatorTelegramId = session.metadata?.creatorTelegramId || null;
+  const creatorUrl = session.metadata?.creatorUrl || null;
+
   const amount = (session.amount_total ?? 0) / 100;
 
   if (!userId || !videoId) {
@@ -96,15 +116,21 @@ export async function POST(req) {
     return new Response("Missing metadata", { status: 400 });
   }
 
+  // 👉 Build the actual clickable creator tag
+  const creatorTag = formatCreatorTag(
+    creatorName,
+    creatorTelegramId,
+    creatorUrl
+  );
+
   try {
     await connectDB();
 
-    // ✅ Idempotent DB write (retry-safe)
     const result = await Purchase.findOneAndUpdate(
       {
         userId,
         videoId,
-        stripeEventId: { $ne: event.id }, // prevent duplicate webhook replays
+        stripeEventId: { $ne: event.id },
       },
       {
         userId,
@@ -116,16 +142,14 @@ export async function POST(req) {
       { upsert: true, new: true }
     );
 
-    // ✅ If already processed, exit quietly
     if (!result) {
       console.log("↩️ Duplicate Stripe event ignored:", event.id);
       return NextResponse.json({ received: true });
     }
 
-    // ✅ Telegram group notification
     await sendTelegramSaleMessage({
       isTest,
-      creatorName,
+      creatorTag,
       videoId,
       amount,
     });
