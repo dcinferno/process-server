@@ -1,8 +1,6 @@
 import Stripe from "stripe";
 import { connectDB } from "../../../lib/db";
-
 import Purchase from "../../../lib/models/Purchase";
-
 import { computeFinalPrice } from "../../../lib/calculatePrices";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -23,7 +21,14 @@ export async function OPTIONS() {
 
 export async function POST(req) {
   try {
-    const { userId, videoId, site } = await req.json();
+    const {
+      userId,
+      videoId,
+      site,
+      creatorName,
+      creatorTelegramId,
+      creatorUrl,
+    } = await req.json();
 
     if (!userId || !videoId || !site) {
       return new Response("Missing fields", {
@@ -31,17 +36,14 @@ export async function POST(req) {
         headers: { "Access-Control-Allow-Origin": allowedOrigin },
       });
     }
+
     await connectDB();
 
-    // 🔒 Prevent double purchase
+    // ✔ Prevent double purchase
     const existingPurchase = await Purchase.findOne({ userId, videoId });
-
     if (existingPurchase) {
       return new Response(
-        JSON.stringify({
-          error: "Already purchased",
-          purchased: true,
-        }),
+        JSON.stringify({ error: "Already purchased", purchased: true }),
         {
           status: 409,
           headers: {
@@ -52,7 +54,7 @@ export async function POST(req) {
       );
     }
 
-    // 🔹 Fetch video from public video-store API
+    // ✔ Fetch video details from your public video-store API
     const videoRes = await fetch(`${allowedOrigin}/api/videos?id=${videoId}`);
 
     if (!videoRes.ok) {
@@ -60,14 +62,14 @@ export async function POST(req) {
     }
 
     const video = await videoRes.json();
-
     if (!video || typeof video.price !== "number") {
       return new Response("Invalid video pricing", { status: 400 });
     }
 
-    // 🔐 Price is calculated HERE — not trusted from client
+    // ✔ Compute official final price (ignores client-side manipulation)
     const unitAmount = computeFinalPrice(video);
 
+    // ------------ STRIPE CHECKOUT SESSION -----------------
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
 
@@ -92,6 +94,9 @@ export async function POST(req) {
         videoId,
         site,
         chargedAmount: unitAmount,
+        creatorName: creatorName ?? video.creatorName ?? "",
+        creatorTelegramId: creatorTelegramId ?? video.creatorTelegramId ?? "",
+        creatorUrl: creatorUrl ?? video.socialMediaUrl ?? "",
       },
     });
 
