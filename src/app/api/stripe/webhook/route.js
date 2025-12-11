@@ -29,7 +29,7 @@ async function sendTelegramSaleMessage({
 `;
 
   try {
-    await fetch(
+    const res = await fetch(
       `https://api.telegram.org/bot${process.env.BOT_TOKEN}/sendMessage`,
       {
         method: "POST",
@@ -41,8 +41,16 @@ async function sendTelegramSaleMessage({
         }),
       }
     );
+
+    const data = await res.json();
+    console.log("📬 Telegram response:", data);
+
+    if (!data.ok) {
+      throw new Error(data.description || "Telegram send failed");
+    }
   } catch (err) {
-    console.error("Telegram notification failed:", err);
+    console.error("❌ Telegram notification failed:", err);
+    throw err; // allow webhook retry if Telegram fails
   }
 }
 
@@ -63,46 +71,61 @@ export async function POST(req) {
     return new Response("Invalid signature", { status: 400 });
   }
 
-  if (event.type === "checkout.session.completed") {
-    const isTest = event.livemode === false;
-    const session = event.data.object;
-
-    const userId = session.metadata?.userId;
-    const videoId = session.metadata?.videoId;
-    const creatorName = session.metadata?.creatorName ?? "Unknown";
-    const amount = session.amount_total / 100;
-
-    if (!userId || !videoId) {
-      console.error("❌ Missing required Stripe metadata");
-      return new Response("Missing metadata", { status: 400 });
-    }
-
-    try {
-      await connectDB();
-
-      await Purchase.findOneAndUpdate(
-        { userId, videoId },
-        {
-          userId,
-          videoId,
-          amount,
-          purchasedAt: new Date(),
-        },
-        { upsert: true }
-      );
-
-      // ✅ Telegram group notification
-      await sendTelegramSaleMessage({
-        isTest,
-        creatorName,
-        videoId,
-        amount,
-      });
-    } catch (err) {
-      console.error("❌ Webhook processing error:", err);
-      return new Response("Webhook processing failed", { status: 500 });
-    }
+  // ✅ Only process once per Stripe event
+  if (event.type !== "checkout.session.completed") {
+    return NextResponse.json({ received: true });
   }
 
-  return NextResponse.json({ received: true });
+  const isTest = event.livemode === false;
+  const session = event.data.object;
+
+  const userId = session.metadata?.userId;
+  const videoId = session.metadata?.videoId;
+  const creatorName = session.metadata?.creatorName ?? "Unknown";
+  const amount = (session.amount_total ?? 0) / 100;
+
+  if (!userId || !videoId) {
+    console.error("❌ Missing required Stripe metadata");
+    return new Response("Missing metadata", { status: 400 });
+  }
+
+  try {
+    await connectDB();
+
+    // ✅ Idempotent DB write (retry-safe)
+    const result = await Purchase.findOneAndUpdate(
+      {
+        userId,
+        videoId,
+        stripeEventId: { $ne: event.id }, // prevent duplicate webhook replays
+      },
+      {
+        userId,
+        videoId,
+        amount,
+        stripeEventId: event.id,
+        purchasedAt: new Date(),
+      },
+      { upsert: true, new: true }
+    );
+
+    // ✅ If already processed, exit quietly
+    if (!result) {
+      console.log("↩️ Duplicate Stripe event ignored:", event.id);
+      return NextResponse.json({ received: true });
+    }
+
+    // ✅ Telegram group notification
+    await sendTelegramSaleMessage({
+      isTest,
+      creatorName,
+      videoId,
+      amount,
+    });
+
+    return NextResponse.json({ received: true });
+  } catch (err) {
+    console.error("❌ Webhook processing error:", err);
+    return new Response("Webhook processing failed", { status: 500 });
+  }
 }
