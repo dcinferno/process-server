@@ -10,23 +10,25 @@ export default function PurchasesDashboard() {
   const [toDate, setToDate] = useState("");
   const [selected, setSelected] = useState(null);
 
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
   const fetchPurchases = async () => {
     setLoading(true);
 
     let url = "/api/purchases";
     const params = [];
 
+    // FILTERS
     if (creatorFilter.trim()) {
       params.push(`creator=${encodeURIComponent(creatorFilter.trim())}`);
     }
+    if (fromDate) params.push(`from=${fromDate}`);
+    if (toDate) params.push(`to=${toDate}`);
 
-    if (fromDate) {
-      params.push(`from=${fromDate}`);
-    }
-
-    if (toDate) {
-      params.push(`to=${toDate}`);
-    }
+    // PAGINATION
+    params.push(`page=${page}`);
+    params.push(`limit=20`);
 
     if (params.length > 0) {
       url += "?" + params.join("&");
@@ -35,18 +37,27 @@ export default function PurchasesDashboard() {
     const res = await fetch(url);
     const data = await res.json();
 
-    setPurchases(data);
+    setPurchases(data.purchases);
+    setTotalPages(data.totalPages || 1);
+
     setLoading(false);
   };
 
+  // Refresh data when filters OR page changes
   useEffect(() => {
     fetchPurchases();
+  }, [creatorFilter, fromDate, toDate, page]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPage(1);
   }, [creatorFilter, fromDate, toDate]);
 
   return (
     <div className="p-4 max-w-4xl mx-auto text-black bg-white min-h-screen">
       <h1 className="text-3xl font-bold mb-6">Sales Dashboard</h1>
 
+      {/* FILTERS */}
       <div className="mb-6 flex gap-3 flex-wrap items-center">
         <input
           placeholder="Filter by creator name..."
@@ -70,17 +81,19 @@ export default function PurchasesDashboard() {
         />
 
         <button
-          onClick={fetchPurchases}
+          onClick={() => fetchPurchases()}
           className="bg-blue-600 text-white px-4 py-2 rounded"
         >
           Refresh
         </button>
       </div>
 
+      {/* LOADING */}
       {loading ? (
         <p>Loading…</p>
       ) : (
         <>
+          {/* DESKTOP TABLE */}
           <div className="hidden sm:block">
             <div className="bg-white shadow rounded-lg overflow-hidden">
               <table className="w-full text-left">
@@ -122,6 +135,7 @@ export default function PurchasesDashboard() {
             </div>
           </div>
 
+          {/* MOBILE CARDS */}
           <div className="sm:hidden space-y-3">
             {purchases.map((p) => (
               <div
@@ -141,16 +155,42 @@ export default function PurchasesDashboard() {
                 </div>
               </div>
             ))}
+          </div>
 
-            {purchases.length === 0 && (
-              <p className="text-center text-gray-500 mt-6">
-                No purchases found.
-              </p>
-            )}
+          {/* PAGINATION */}
+          <div className="flex justify-center gap-4 mt-8">
+            <button
+              disabled={page === 1}
+              onClick={() => setPage((p) => p - 1)}
+              className={`px-4 py-2 rounded border ${
+                page === 1
+                  ? "opacity-40 cursor-not-allowed"
+                  : "hover:bg-gray-100"
+              }`}
+            >
+              ← Prev
+            </button>
+
+            <span className="font-medium">
+              Page {page} / {totalPages}
+            </span>
+
+            <button
+              disabled={page === totalPages}
+              onClick={() => setPage((p) => p + 1)}
+              className={`px-4 py-2 rounded border ${
+                page === totalPages
+                  ? "opacity-40 cursor-not-allowed"
+                  : "hover:bg-gray-100"
+              }`}
+            >
+              Next →
+            </button>
           </div>
         </>
       )}
 
+      {/* MODAL */}
       {selected && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md relative">
