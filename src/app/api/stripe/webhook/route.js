@@ -20,14 +20,8 @@ export async function HEAD() {
  * Format clickable creator tag
  */
 function formatCreatorTag(creatorName, telegramId, fallbackUrl) {
-  if (telegramId) {
-    // TRUE mention by Telegram user ID
-    return `[${creatorName}](tg://user?id=${telegramId})`;
-  }
-  if (fallbackUrl) {
-    // Use the creator's public Telegram URL
-    return `[${creatorName}](${fallbackUrl})`;
-  }
+  if (telegramId) return `[${creatorName}](tg://user?id=${telegramId})`;
+  if (fallbackUrl) return `[${creatorName}](${fallbackUrl})`;
   return creatorName;
 }
 
@@ -37,7 +31,7 @@ function formatCreatorTag(creatorName, telegramId, fallbackUrl) {
 async function sendTelegramSaleMessage({
   isTest,
   creatorTag,
-  videoId,
+  videoTitle,
   amount,
 }) {
   const header = isTest
@@ -46,7 +40,7 @@ async function sendTelegramSaleMessage({
 
   const message =
     `${header}` +
-    `🎥 *Video:* ${videoId}\n` +
+    `🎥 *Video:* ${videoTitle}\n` +
     `👤 *Creator:* ${creatorTag}\n` +
     `💵 *Amount:* $${amount.toFixed(2)}\n` +
     `🕒 *Time:* ${new Date().toLocaleTimeString()}`;
@@ -103,7 +97,8 @@ export async function POST(req) {
   const isTest = event.livemode === false;
 
   const userId = session.metadata?.userId;
-  const videoId = session.metadata?.videoId;
+  const videoId = session.metadata?.videoId; // still used for DB lookup
+  const videoTitle = session.metadata?.videoTitle || "Unknown Title";
   const creatorName = session.metadata?.creatorName ?? "Unknown";
   const email = session.metadata?.buyerEmail;
 
@@ -117,7 +112,7 @@ export async function POST(req) {
     return new Response("Missing metadata", { status: 400 });
   }
 
-  // 👉 Build the actual clickable creator tag
+  // Build clickable markdown tag
   const creatorTag = formatCreatorTag(
     creatorName,
     creatorTelegramId,
@@ -136,13 +131,13 @@ export async function POST(req) {
       {
         userId,
         videoId,
-        amount,
+        videoTitle,
         creatorName,
         creatorTelegramId,
         creatorUrl,
-        videoTitle,
-        stripeEventId: event.id,
+        amount,
         email,
+        stripeEventId: event.id,
         purchasedAt: new Date(),
       },
       { upsert: true, new: true }
@@ -156,7 +151,7 @@ export async function POST(req) {
     await sendTelegramSaleMessage({
       isTest,
       creatorTag,
-      videoId,
+      videoTitle,
       amount,
     });
 
