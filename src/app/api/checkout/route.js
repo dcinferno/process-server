@@ -92,11 +92,12 @@ export async function POST(req) {
       metadata: {
         userId,
         videoId,
-        site,
         chargedAmount: unitAmount,
-        creatorName: creatorName ?? video.creatorName ?? "",
-        creatorTelegramId: creatorTelegramId ?? video.creatorTelegramId ?? "",
-        creatorUrl: creatorUrl ?? video.socialMediaUrl ?? "",
+        creatorName: video.creatorName,
+        creatorTelegramId: video.creatorTelegramId || "",
+        creatorUrl: video.socialMediaUrl || "",
+        videoTitle: video.title || "",
+        site,
       },
     });
 

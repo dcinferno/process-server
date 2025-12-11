@@ -25,6 +25,10 @@ const PurchaseSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    creatorName: { type: String },
+    creatorTelegramId: { type: String },
+    creatorUrl: { type: String },
+    videoTitle: { type: String },
     email: { type: String },
   },
   { timestamps: true }

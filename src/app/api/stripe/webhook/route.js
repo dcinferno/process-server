@@ -105,6 +105,7 @@ export async function POST(req) {
   const userId = session.metadata?.userId;
   const videoId = session.metadata?.videoId;
   const creatorName = session.metadata?.creatorName ?? "Unknown";
+  const email = session.metadata?.buyerEmail;
 
   const creatorTelegramId = session.metadata?.creatorTelegramId || null;
   const creatorUrl = session.metadata?.creatorUrl || null;
@@ -136,7 +137,12 @@ export async function POST(req) {
         userId,
         videoId,
         amount,
+        creatorName,
+        creatorTelegramId,
+        creatorUrl,
+        videoTitle,
         stripeEventId: event.id,
+        email,
         purchasedAt: new Date(),
       },
       { upsert: true, new: true }
