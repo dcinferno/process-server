@@ -12,7 +12,8 @@ export async function GET(req) {
     const from = searchParams.get("from");
     const to = searchParams.get("to");
 
-    let filter = {};
+    // ✔ Only return finalized paid purchases
+    let filter = { status: "paid" };
 
     if (creator) {
       filter.creatorName = new RegExp(`^${creator}$`, "i");

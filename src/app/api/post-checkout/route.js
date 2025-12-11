@@ -6,6 +6,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 const allowedOrigin = process.env.NEXT_PUBLIC_FRONTEND_URL;
 
+// Maps "site" → Neutral redirect entrypoint (NOT your real NSFW URL!)
 const SITE_MAP = {
   A: process.env.NEXT_PUBLIC_FRONTEND_URL,
 };
@@ -33,60 +34,66 @@ export async function GET(req) {
       headers: {
         "Access-Control-Allow-Origin": allowedOrigin,
         "Access-Control-Allow-Credentials": "true",
-        Vary: "Origin",
       },
     });
   }
 
   try {
+    await connectDB();
+
+    // Retrieve session safely
     const session = await stripe.checkout.sessions.retrieve(sessionId);
 
-    const site = session.metadata?.site;
-    const videoId = session.metadata?.videoId;
+    // SAFE — Stripe metadata contains only anonymous IDs
+    const purchaseId = session.metadata?.purchaseId;
     const userId = session.metadata?.userId;
+    const videoId = session.metadata?.videoId;
+    const site = session.metadata?.site;
 
-    const email = session.customer_details?.email;
+    const email = session.customer_details?.email || "";
 
-    // Save purchase
-    await Purchase.findOneAndUpdate(
-      { userId, videoId },
-      { userId, videoId, email }, // store email here
-      { upsert: true }
-    );
-
-    if (!site || !SITE_MAP[site]) {
-      console.error("Unknown site:", site);
-      return new Response("Invalid site", {
-        status: 400,
-        headers: {
-          "Access-Control-Allow-Origin": allowedOrigin,
-          "Access-Control-Allow-Credentials": "true",
-          Vary: "Origin",
-        },
-      });
+    if (!purchaseId || !videoId || !userId) {
+      console.error("Missing metadata:", session.metadata);
+      return new Response("Invalid metadata", { status: 400 });
     }
 
+    // Update purchase record
+    await Purchase.findByIdAndUpdate(
+      purchaseId,
+      {
+        status: "paid",
+        email,
+        paidAt: new Date(),
+        stripeSessionId: sessionId,
+      },
+      { new: true }
+    );
+
+    if (!SITE_MAP[site]) {
+      console.error("Unknown site:", site);
+      return new Response("Invalid site", { status: 400 });
+    }
+
+    // Redirect user back to the actual front-end
     const redirectUrl = `${SITE_MAP[site]}/success?videoId=${videoId}`;
-    // SAFARI-FRIENDLY REDIRECT
+
+    // Safari-friendly redirect
     return new Response(null, {
       status: 302,
       headers: {
         Location: redirectUrl,
         "Access-Control-Allow-Origin": allowedOrigin,
         "Access-Control-Allow-Credentials": "true",
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
         Vary: "Origin",
       },
     });
-  } catch (error) {
-    console.error("post-checkout error:", error);
+  } catch (err) {
+    console.error("post-checkout error:", err);
     return new Response("Post-checkout error", {
       status: 500,
       headers: {
         "Access-Control-Allow-Origin": allowedOrigin,
         "Access-Control-Allow-Credentials": "true",
-        Vary: "Origin",
       },
     });
   }

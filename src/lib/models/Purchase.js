@@ -3,27 +3,32 @@ import mongoose from "mongoose";
 const PurchaseSchema = new mongoose.Schema(
   {
     userId: {
-      type: String, // using String because users are anonymous
+      type: String,
       required: true,
       index: true,
     },
     videoId: {
-      type: String, // your video IDs are strings (Mongo _id)
+      type: String,
       required: true,
       index: true,
     },
     amount: {
-      type: Number, // store the purchase amount (optional)
-      required: false,
+      type: Number,
     },
     stripeEventId: {
       type: String,
-      required: true,
-      index: true, // ✅ important for performance + dedupe
+      default: null,
+      index: true,
+    },
+    status: {
+      type: String,
+      enum: ["pending", "paid"],
+      default: "pending",
+      index: true,
     },
     purchasedAt: {
       type: Date,
-      default: Date.now,
+      default: null,
     },
     creatorName: { type: String },
     creatorTelegramId: { type: String },
@@ -34,11 +39,7 @@ const PurchaseSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Prevents duplicate purchases for the same user & video
-PurchaseSchema.index(
-  { userId: 1, videoId: 1, stripeEventId: 1 },
-  { unique: true }
-);
+PurchaseSchema.index({ userId: 1, videoId: 1 }, { unique: true });
 
 export default mongoose.models.Purchase ||
   mongoose.model("Purchase", PurchaseSchema);

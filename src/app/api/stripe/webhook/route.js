@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// Allow Stripe HEAD + OPTIONS
+// Allow HEAD + OPTIONS
 export async function OPTIONS() {
   return new Response("OK", { status: 200 });
 }
@@ -18,43 +18,30 @@ export async function HEAD() {
 }
 
 /* ------------------------------------------
-   HTML-SAFE ENCODERS (avoid broken messages)
+   HTML SAFE HELPERS
 ------------------------------------------- */
-function escapeHtml(text = "") {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+function escapeHtml(t = "") {
+  return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function escapeAttr(text = "") {
-  return text
+function escapeAttr(t = "") {
+  return t
     .replace(/&/g, "&amp;")
     .replace(/"/g, "&quot;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 }
 
-/* ------------------------------------------
-   Format clickable creator tag (HTML)
-------------------------------------------- */
-function formatCreatorTag(creatorName, telegramId, fallbackUrl) {
-  const safeName = escapeHtml(creatorName || "Unknown");
-
-  if (telegramId) {
-    // TRUE Telegram user mention
-    return `<a href="tg://user?id=${escapeAttr(telegramId)}">${safeName}</a>`;
-  }
-
-  if (fallbackUrl) {
-    return `<a href="${escapeAttr(fallbackUrl)}">${safeName}</a>`;
-  }
-
-  return safeName;
+function formatCreatorTag(name, telegramId, url) {
+  const safe = escapeHtml(name || "Unknown");
+  if (telegramId)
+    return `<a href="tg://user?id=${escapeAttr(telegramId)}">${safe}</a>`;
+  if (url) return `<a href="${escapeAttr(url)}">${safe}</a>`;
+  return safe;
 }
 
 /* ------------------------------------------
-   Send Telegram sale notification
+   TELEGRAM SALE NOTIFICATION
 ------------------------------------------- */
 async function sendTelegramSaleMessage({
   isTest,
@@ -92,24 +79,21 @@ async function sendTelegramSaleMessage({
     );
 
     const data = await res.json();
-    console.log("📬 Telegram response:", data);
-
     if (!data.ok) throw new Error(data.description || "Telegram send failed");
+    console.log("📬 Telegram sent successfully:", data);
   } catch (err) {
-    console.error("❌ Telegram notification failed:", err);
-    throw err;
+    console.error("❌ Telegram error:", err);
   }
 }
 
 /* ------------------------------------------
-   HANDLE STRIPE WEBHOOK
+   STRIPE WEBHOOK HANDLER
 ------------------------------------------- */
 export async function POST(req) {
   const body = Buffer.from(await req.arrayBuffer());
   const sig = req.headers.get("stripe-signature");
 
   let event;
-
   try {
     event = stripe.webhooks.constructEvent(
       body,
@@ -117,7 +101,7 @@ export async function POST(req) {
       process.env.STRIPE_WEBHOOK_SECRET
     );
   } catch (err) {
-    console.error("❌ Stripe signature verification failed:", err.message);
+    console.error("❌ Invalid Stripe signature:", err.message);
     return new Response("Invalid signature", { status: 400 });
   }
 
@@ -128,68 +112,66 @@ export async function POST(req) {
   const session = event.data.object;
   const isTest = !event.livemode;
 
+  // SAFE → Only anonymous metadata
+  const purchaseId = session.metadata?.purchaseId;
   const userId = session.metadata?.userId;
   const videoId = session.metadata?.videoId;
-  const videoTitle = session.metadata?.videoTitle || "Unknown Title";
 
-  const creatorName = session.metadata?.creatorName || "Unknown";
-  const creatorTelegramId = session.metadata?.creatorTelegramId || null;
-  const creatorUrl = session.metadata?.creatorUrl || null;
-  const email = session.metadata?.buyerEmail || null;
-
-  const amount = (session.amount_total ?? 0) / 100;
-
-  if (!userId || !videoId) {
-    console.error("❌ Missing metadata in Stripe session", session.metadata);
+  if (!purchaseId || !userId || !videoId) {
+    console.error("❌ Missing safe metadata:", session.metadata);
     return new Response("Missing metadata", { status: 400 });
   }
 
-  const creatorTag = formatCreatorTag(
-    creatorName,
-    creatorTelegramId,
-    creatorUrl
-  );
+  const amount = (session.amount_total ?? 0) / 100;
+  const email = session.customer_details?.email || "";
 
   try {
     await connectDB();
 
-    const result = await Purchase.findOneAndUpdate(
-      {
-        userId,
-        videoId,
-        stripeEventId: { $ne: event.id }, // prevent duplicates
-      },
-      {
-        userId,
-        videoId,
-        videoTitle,
-        creatorName,
-        creatorTelegramId,
-        creatorUrl,
-        amount,
-        email,
-        stripeEventId: event.id,
-        purchasedAt: new Date(),
-      },
-      { upsert: true, new: true }
-    );
+    // Fetch full purchase data (has title + creator)
+    const existing = await Purchase.findById(purchaseId).lean();
 
-    if (!result) {
-      console.log("↩️ Duplicate Stripe event ignored:", event.id);
+    if (!existing) {
+      console.error("❌ Purchase ID not found:", purchaseId);
+      return new Response("No purchase", { status: 404 });
+    }
+
+    // Prevent duplicate events
+    if (existing.stripeEventId === event.id) {
+      console.log("↩️ Duplicate webhook ignored:", event.id);
       return NextResponse.json({ received: true });
     }
 
-    // Send Telegram message
+    // Update purchase safely (Stripe sees nothing NSFW)
+    const updated = await Purchase.findByIdAndUpdate(
+      purchaseId,
+      {
+        status: "paid",
+        stripeEventId: event.id,
+        email,
+        purchasedAt: new Date(),
+      },
+      { new: true }
+    ).lean();
+
+    // Build Telegram cleaner
+    const creatorTag = formatCreatorTag(
+      updated.creatorName,
+      updated.creatorTelegramId,
+      updated.creatorUrl
+    );
+
+    // Send Telegram sale alert
     await sendTelegramSaleMessage({
       isTest,
       creatorTag,
-      videoTitle,
+      videoTitle: updated.videoTitle,
       amount,
     });
 
     return NextResponse.json({ received: true });
   } catch (err) {
-    console.error("❌ Webhook processing error:", err);
+    console.error("❌ Webhook error:", err);
     return new Response("Webhook processing failed", { status: 500 });
   }
 }
