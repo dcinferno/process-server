@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
+// Allow Stripe HEAD + OPTIONS
 export async function OPTIONS() {
   return new Response("OK", { status: 200 });
 }
@@ -16,34 +17,64 @@ export async function HEAD() {
   return new Response("OK", { status: 200 });
 }
 
-/**
- * Format clickable creator tag
- */
-function formatCreatorTag(creatorName, telegramId, fallbackUrl) {
-  if (telegramId) return `[${creatorName}](tg://user?id=${telegramId})`;
-  if (fallbackUrl) return `[${creatorName}](${fallbackUrl})`;
-  return creatorName;
+/* ------------------------------------------
+   HTML-SAFE ENCODERS (avoid broken messages)
+------------------------------------------- */
+function escapeHtml(text = "") {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
-/**
- * Send sale notification to Telegram group
- */
+function escapeAttr(text = "") {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/* ------------------------------------------
+   Format clickable creator tag (HTML)
+------------------------------------------- */
+function formatCreatorTag(creatorName, telegramId, fallbackUrl) {
+  const safeName = escapeHtml(creatorName || "Unknown");
+
+  if (telegramId) {
+    // TRUE Telegram user mention
+    return `<a href="tg://user?id=${escapeAttr(telegramId)}">${safeName}</a>`;
+  }
+
+  if (fallbackUrl) {
+    return `<a href="${escapeAttr(fallbackUrl)}">${safeName}</a>`;
+  }
+
+  return safeName;
+}
+
+/* ------------------------------------------
+   Send Telegram sale notification
+------------------------------------------- */
 async function sendTelegramSaleMessage({
   isTest,
   creatorTag,
   videoTitle,
   amount,
 }) {
+  const safeTitle = escapeHtml(videoTitle);
+  const safeTime = escapeHtml(new Date().toLocaleTimeString());
+
   const header = isTest
-    ? "🚨 *TEST TRANSACTION* 🚨\n_Not real money_\n\n"
-    : "💰 *New Sale!* 💰\n\n";
+    ? `🚨 <b>TEST TRANSACTION</b> 🚨\n<i>Not real money</i>\n\n`
+    : `💰 <b>New Sale!</b> 💰\n\n`;
 
   const message =
     `${header}` +
-    `🎥 *Video:* ${videoTitle}\n` +
-    `👤 *Creator:* ${creatorTag}\n` +
-    `💵 *Amount:* $${amount.toFixed(2)}\n` +
-    `🕒 *Time:* ${new Date().toLocaleTimeString()}`;
+    `🎥 <b>Video:</b> ${safeTitle}\n` +
+    `👤 <b>Creator:</b> ${creatorTag}\n` +
+    `💵 <b>Amount:</b> $${amount.toFixed(2)}\n` +
+    `🕒 <b>Time:</b> ${safeTime}`;
 
   try {
     const res = await fetch(
@@ -54,7 +85,7 @@ async function sendTelegramSaleMessage({
         body: JSON.stringify({
           chat_id: process.env.SALES_GROUP_ID,
           text: message,
-          parse_mode: "Markdown",
+          parse_mode: "HTML",
           disable_web_page_preview: true,
         }),
       }
@@ -63,15 +94,16 @@ async function sendTelegramSaleMessage({
     const data = await res.json();
     console.log("📬 Telegram response:", data);
 
-    if (!data.ok) {
-      throw new Error(data.description || "Telegram send failed");
-    }
+    if (!data.ok) throw new Error(data.description || "Telegram send failed");
   } catch (err) {
     console.error("❌ Telegram notification failed:", err);
-    throw err; // allow webhook retry
+    throw err;
   }
 }
 
+/* ------------------------------------------
+   HANDLE STRIPE WEBHOOK
+------------------------------------------- */
 export async function POST(req) {
   const body = Buffer.from(await req.arrayBuffer());
   const sig = req.headers.get("stripe-signature");
@@ -94,25 +126,24 @@ export async function POST(req) {
   }
 
   const session = event.data.object;
-  const isTest = event.livemode === false;
+  const isTest = !event.livemode;
 
   const userId = session.metadata?.userId;
-  const videoId = session.metadata?.videoId; // still used for DB lookup
+  const videoId = session.metadata?.videoId;
   const videoTitle = session.metadata?.videoTitle || "Unknown Title";
-  const creatorName = session.metadata?.creatorName ?? "Unknown";
-  const email = session.metadata?.buyerEmail;
 
+  const creatorName = session.metadata?.creatorName || "Unknown";
   const creatorTelegramId = session.metadata?.creatorTelegramId || null;
   const creatorUrl = session.metadata?.creatorUrl || null;
+  const email = session.metadata?.buyerEmail || null;
 
   const amount = (session.amount_total ?? 0) / 100;
 
   if (!userId || !videoId) {
-    console.error("❌ Missing required Stripe metadata");
+    console.error("❌ Missing metadata in Stripe session", session.metadata);
     return new Response("Missing metadata", { status: 400 });
   }
 
-  // Build clickable markdown tag
   const creatorTag = formatCreatorTag(
     creatorName,
     creatorTelegramId,
@@ -126,7 +157,7 @@ export async function POST(req) {
       {
         userId,
         videoId,
-        stripeEventId: { $ne: event.id },
+        stripeEventId: { $ne: event.id }, // prevent duplicates
       },
       {
         userId,
@@ -148,6 +179,7 @@ export async function POST(req) {
       return NextResponse.json({ received: true });
     }
 
+    // Send Telegram message
     await sendTelegramSaleMessage({
       isTest,
       creatorTag,
