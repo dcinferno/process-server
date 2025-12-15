@@ -35,7 +35,7 @@ export async function POST(req) {
       videoId,
       status: "paid",
     });
-    if (existing) {
+    if (existing?.status === "paid") {
       return new Response(
         JSON.stringify({ error: "Already purchased", purchased: true }),
         {
@@ -59,19 +59,25 @@ export async function POST(req) {
 
     // Compute server-side price
     const finalAmount = computeFinalPrice(video);
-
-    // BEFORE creating the Stripe session, store a pending purchase
-    const pendingPurchase = await Purchase.create({
+    let pendingPurchase = await Purchase.findOne({
       userId,
       videoId,
-      videoTitle: video.title, // SAFE – stays in your DB only
-      creatorName: video.creatorName, // SAFE – not sent to Stripe
-      creatorTelegramId: video.creatorTelegramId,
-      creatorUrl: video.socialMediaUrl,
-      amount: finalAmount / 100,
       status: "pending",
-      site,
     });
+
+    if (!pendingPurchase) {
+      pendingPurchase = await Purchase.create({
+        userId,
+        videoId,
+        videoTitle: video.title,
+        creatorName: video.creatorName,
+        creatorTelegramId: video.creatorTelegramId,
+        creatorUrl: video.socialMediaUrl,
+        amount: finalAmount / 100,
+        status: "pending",
+        site,
+      });
+    }
 
     // Create the Stripe session with NO sensitive metadata
     const session = await stripe.checkout.sessions.create({
