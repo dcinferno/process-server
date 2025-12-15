@@ -30,7 +30,11 @@ export async function POST(req) {
     await connectDB();
 
     // Prevent duplicate purchases
-    const existing = await Purchase.findOne({ userId, videoId });
+    const existing = await Purchase.findOne({
+      userId,
+      videoId,
+      status: "paid",
+    });
     if (existing) {
       return new Response(
         JSON.stringify({ error: "Already purchased", purchased: true }),
