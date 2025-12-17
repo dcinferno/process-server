@@ -89,7 +89,7 @@ export async function POST(req) {
             currency: "usd",
             unit_amount: finalAmount,
             product_data: {
-              name: "Digital Product", // 👈 Safe generic label, Stripe sees nothing NSFW
+              name: "Digital Product",
             },
           },
           quantity: 1,
