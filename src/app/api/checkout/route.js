@@ -2,8 +2,8 @@ import Stripe from "stripe";
 import { connectDB } from "../../../lib/db";
 import Purchase from "../../../lib/models/Purchase";
 import { computeFinalPrice } from "../../../lib/calculatePrices";
+import { createCheckoutSession } from "@/lib/createCheckoutSession";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const allowedOrigin = process.env.NEXT_PUBLIC_FRONTEND_URL;
 
 function corsHeaders(req) {
@@ -93,27 +93,10 @@ export async function POST(req) {
     }
 
     // Create the Stripe session with NO sensitive metadata
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            unit_amount: finalAmount,
-            product_data: {
-              name: "Digital Product",
-            },
-          },
-          quantity: 1,
-        },
-      ],
-
-      // Send Stripe to a SAFE redirect domain (not the video store)
-      success_url: `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/post-checkout?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_API_BASE_URL}/cancel`,
-
-      // SAFE Metadata: only anonymous IDs
+    const session = await createCheckoutSession({
+      finalAmount,
+      successUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/post-checkout?session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL}/cancel`,
       metadata: {
         purchaseId: pendingPurchase._id.toString(),
         userId,
