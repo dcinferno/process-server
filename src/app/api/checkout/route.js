@@ -24,7 +24,14 @@ export async function POST(req) {
     const { userId, videoId, site } = await req.json();
 
     if (!userId || !videoId || !site) {
-      return new Response("Missing fields", { status: 400 });
+      return new Response("Missing fields", {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": allowedOrigin,
+          "Access-Control-Allow-Credentials": "true",
+        },
+      });
     }
 
     await connectDB();
@@ -50,11 +57,26 @@ export async function POST(req) {
 
     // Fetch video info from your own API (Stripe won't see any of this)
     const videoRes = await fetch(`${allowedOrigin}/api/videos?id=${videoId}`);
-    if (!videoRes.ok) return new Response("Video not found", { status: 404 });
+    if (!videoRes.ok)
+      return new Response("Video not found", {
+        status: 404,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": allowedOrigin,
+          "Access-Control-Allow-Credentials": "true",
+        },
+      });
 
     const video = await videoRes.json();
     if (!video || typeof video.price !== "number") {
-      return new Response("Invalid video pricing", { status: 400 });
+      return new Response("Invalid video pricing", {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": allowedOrigin,
+          "Access-Control-Allow-Credentials": "true",
+        },
+      });
     }
 
     // Compute server-side price
