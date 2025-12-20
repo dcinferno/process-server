@@ -119,6 +119,13 @@ export async function POST(req) {
     });
   } catch (err) {
     console.error("Checkout error:", err);
-    return new Response("Checkout Error", { status: 500 });
+    return new Response("Checkout Error", {
+      status: 500,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": allowedOrigin,
+        "Access-Control-Allow-Credentials": "true",
+      },
+    });
   }
 }
