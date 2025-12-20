@@ -1,7 +1,7 @@
 // process-server/app/api/tg-purchase/route.js
-import { connectToDB } from "@/lib/mongodb";
-import { computeFinalPrice } from "@/lib/calculatePrices";
-import { createCheckoutSession } from "@/lib/createCheckoutSession";
+import { connectToDB } from "../../../lib/db";
+import { computeFinalPrice } from "../../../lib/calculatePrices";
+import { createCheckoutSession } from "../../../lib/createCheckoutSession";
 
 export async function POST(req) {
   await connectToDB();
