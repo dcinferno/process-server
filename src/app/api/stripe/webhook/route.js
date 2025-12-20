@@ -116,10 +116,12 @@ export async function POST(req) {
 
   // SAFE → Only anonymous metadata
   const purchaseId = session.metadata?.purchaseId;
-  const userId = session.metadata?.userId;
-  const videoId = session.metadata?.videoId;
+  const userId = session.metadata?.userId ?? null;
+  const videoId = session.metadata?.videoId ?? null;
+  const site = session.metadata?.site ?? null;
+  const source = session.metadata?.source ?? null;
 
-  if (!purchaseId || !userId || !videoId) {
+  if (!purchaseId || !videoId) {
     console.error("❌ Missing safe metadata:", session.metadata);
     return new Response("Missing metadata", { status: 400 });
   }

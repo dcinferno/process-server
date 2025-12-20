@@ -1,17 +1,20 @@
 import Stripe from "stripe";
-import Videos from "@/models/videos";
-import { computeFinalPrice } from "@/lib/calculatePrices";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-export async function createCheckoutSession({ videoId, source = "site" }) {
-  const video = await Videos.findById(videoId);
-  if (!video || !video.pay || !video.price || !video.fullKey) {
-    throw new Error("Video not purchasable");
+export async function createCheckoutSession({
+  finalAmount, // number (in cents)
+  successUrl, // string
+  cancelUrl, // string
+  metadata = {}, // object (videoId, purchaseId, source, etc.)
+}) {
+  if (typeof finalAmount !== "number" || finalAmount <= 0) {
+    throw new Error("Invalid finalAmount");
   }
 
-  // ✅ SAME pricing logic as api/checkout
-  const finalAmount = Math.round(computeFinalPrice(video) * 100);
+  if (!successUrl || !cancelUrl) {
+    throw new Error("Missing success or cancel URL");
+  }
 
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
@@ -29,13 +32,9 @@ export async function createCheckoutSession({ videoId, source = "site" }) {
       },
     ],
 
-    metadata: {
-      videoId: video._id.toString(),
-      source,
-    },
-
-    success_url: `${process.env.VIDEO_SITE_URL}/success?video=${video._id}`,
-    cancel_url: `${process.env.VIDEO_SITE_URL}/cancel`,
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+    metadata,
   });
 
   return session;
