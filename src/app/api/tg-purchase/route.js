@@ -1,10 +1,10 @@
 // process-server/app/api/tg-purchase/route.js
-import { connectToDB } from "../../../lib/db";
+import { connectDB } from "../../../lib/db";
 import { computeFinalPrice } from "../../../lib/calculatePrices";
 import { createCheckoutSession } from "../../../lib/createCheckoutSession";
 
 export async function POST(req) {
-  await connectToDB();
+  await connectDB();
 
   // 🔐 Internal auth (server-to-server only)
   const token = req.headers.get("x-internal-token");
