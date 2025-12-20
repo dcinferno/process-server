@@ -8,18 +8,14 @@ const allowedOrigin = process.env.NEXT_PUBLIC_FRONTEND_URL;
 
 function corsHeaders(req) {
   const origin = req.headers.get("origin");
-  function corsHeaders(req) {
-    const origin = req.headers.get("origin");
+  if (!origin) return {};
 
-    if (!origin) return {};
-
-    return {
-      "Access-Control-Allow-Origin": origin,
-      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-      Vary: "Origin",
-    };
-  }
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    Vary: "Origin",
+  };
 }
 
 export async function OPTIONS() {
