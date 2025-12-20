@@ -34,7 +34,6 @@ export async function POST(req) {
     });
   const video = await videoRes.json();
   if (!video || !video.pay || !video.fullKey) {
-    console.error(video);
     return new Response("Video not purchasable", { status: 404 });
   }
 
