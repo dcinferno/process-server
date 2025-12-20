@@ -1,4 +1,5 @@
 // process-server/app/api/tg-purchase/route.js
+export const runtime = "nodejs";
 import { connectDB } from "../../../lib/db";
 import { computeFinalPrice } from "../../../lib/calculatePrices";
 import { createCheckoutSession } from "../../../lib/createCheckoutSession";
