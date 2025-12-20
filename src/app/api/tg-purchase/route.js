@@ -2,7 +2,7 @@
 import { connectDB } from "../../../lib/db";
 import { computeFinalPrice } from "../../../lib/calculatePrices";
 import { createCheckoutSession } from "../../../lib/createCheckoutSession";
-
+const allowedOrigin = process.env.NEXT_PUBLIC_FRONTEND_URL;
 export async function POST(req) {
   await connectDB();
 
@@ -30,7 +30,6 @@ export async function POST(req) {
   if (!video.ok)
     return new Response("Video not found", {
       status: 404,
-      headers: corsHeaders(req),
     });
   if (!video || !video.pay || !video.fullKey) {
     return new Response("Video not purchasable", { status: 404 });
