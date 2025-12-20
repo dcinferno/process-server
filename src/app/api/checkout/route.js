@@ -6,16 +6,23 @@ import { computeFinalPrice } from "../../../lib/calculatePrices";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const allowedOrigin = process.env.NEXT_PUBLIC_FRONTEND_URL;
 
+function corsHeaders(req) {
+  const origin = req.headers.get("origin");
+  if (!origin) return {};
+
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Credentials": "true",
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    Vary: "Origin",
+  };
+}
+
 export async function OPTIONS() {
   return new Response(null, {
     status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": allowedOrigin,
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-      "Access-Control-Allow-Credentials": "true",
-      Vary: "Origin",
-    },
+    headers: corsHeaders(req),
   });
 }
 
@@ -26,11 +33,7 @@ export async function POST(req) {
     if (!userId || !videoId || !site) {
       return new Response("Missing fields", {
         status: 400,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": allowedOrigin,
-          "Access-Control-Allow-Credentials": "true",
-        },
+        headers: corsHeaders(req),
       });
     }
 
@@ -47,10 +50,7 @@ export async function POST(req) {
         JSON.stringify({ error: "Already purchased", purchased: true }),
         {
           status: 409,
-          headers: {
-            "Access-Control-Allow-Origin": allowedOrigin,
-            "Access-Control-Allow-Credentials": "true",
-          },
+          headers: corsHeaders(req),
         }
       );
     }
@@ -60,22 +60,14 @@ export async function POST(req) {
     if (!videoRes.ok)
       return new Response("Video not found", {
         status: 404,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": allowedOrigin,
-          "Access-Control-Allow-Credentials": "true",
-        },
+        headers: corsHeaders(req),
       });
 
     const video = await videoRes.json();
     if (!video || typeof video.price !== "number") {
       return new Response("Invalid video pricing", {
         status: 400,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": allowedOrigin,
-          "Access-Control-Allow-Credentials": "true",
-        },
+        headers: corsHeaders(req),
       });
     }
 
@@ -133,21 +125,13 @@ export async function POST(req) {
 
     return new Response(JSON.stringify({ url: session.url }), {
       status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": allowedOrigin,
-        "Access-Control-Allow-Credentials": "true",
-      },
+      headers: corsHeaders(req),
     });
   } catch (err) {
     console.error("Checkout error:", err);
     return new Response("Checkout Error", {
       status: 500,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": allowedOrigin,
-        "Access-Control-Allow-Credentials": "true",
-      },
+      headers: corsHeaders(req),
     });
   }
 }
