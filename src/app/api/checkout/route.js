@@ -18,7 +18,7 @@ function corsHeaders(req) {
   };
 }
 
-export async function OPTIONS() {
+export async function OPTIONS(req) {
   return new Response(null, {
     status: 204,
     headers: corsHeaders(req),
