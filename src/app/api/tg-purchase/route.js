@@ -1,6 +1,5 @@
 // process-server/app/api/tg-purchase/route.js
 import { connectToDB } from "@/lib/mongodb";
-import Videos from "@/models/videos";
 import { computeFinalPrice } from "@/lib/calculatePrices";
 import { createCheckoutSession } from "@/lib/createCheckoutSession";
 
@@ -26,7 +25,13 @@ export async function POST(req) {
   }
 
   // 🔎 Fetch video (source of truth)
-  const video = await Videos.findById(videoId);
+  // Fetch video info from your own API (Stripe won't see any of this)
+  const video = await fetch(`${allowedOrigin}/api/videos?id=${videoId}`);
+  if (!video.ok)
+    return new Response("Video not found", {
+      status: 404,
+      headers: corsHeaders(req),
+    });
   if (!video || !video.pay || !video.fullKey) {
     return new Response("Video not purchasable", { status: 404 });
   }
