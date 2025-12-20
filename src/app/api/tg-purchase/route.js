@@ -27,11 +27,12 @@ export async function POST(req) {
 
   // 🔎 Fetch video (source of truth)
   // Fetch video info from your own API (Stripe won't see any of this)
-  const video = await fetch(`${allowedOrigin}/api/videos?id=${videoId}`);
-  if (!video.ok)
+  const videoRes = await fetch(`${allowedOrigin}/api/videos?id=${videoId}`);
+  if (!videoRes.ok)
     return new Response("Video not found", {
       status: 404,
     });
+  const video = await videoRes.json();
   if (!video || !video.pay || !video.fullKey) {
     console.error(video);
     return new Response("Video not purchasable", { status: 404 });
