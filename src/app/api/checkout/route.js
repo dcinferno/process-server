@@ -2,7 +2,7 @@ import Stripe from "stripe";
 import { connectDB } from "../../../lib/db";
 import Purchase from "../../../lib/models/Purchase";
 import { computeFinalPrice } from "../../../lib/calculatePrices";
-import { createCheckoutSession } from "@/lib/createCheckoutSession";
+import { createCheckoutSession } from "../../../lib/createCheckoutSession";
 
 const allowedOrigin = process.env.NEXT_PUBLIC_FRONTEND_URL;
 
