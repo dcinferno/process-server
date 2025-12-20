@@ -51,7 +51,9 @@ async function sendTelegramSaleMessage({
 }) {
   const safeTitle = escapeHtml(videoTitle);
   const safeTime = escapeHtml(new Date().toLocaleTimeString());
-
+  const groupChat = isTest
+    ? process.env.TEST_GROUP_ID
+    : process.env.SALES_GROUP_ID;
   const header = isTest
     ? `🚨 <b>TEST TRANSACTION</b> 🚨\n<i>Not real money</i>\n\n`
     : `💰 <b>New Sale!</b> 💰\n\n`;
@@ -70,7 +72,7 @@ async function sendTelegramSaleMessage({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          chat_id: process.env.SALES_GROUP_ID,
+          chat_id: groupChat,
           text: message,
           parse_mode: "HTML",
           disable_web_page_preview: true,
