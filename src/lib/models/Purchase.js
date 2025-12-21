@@ -35,6 +35,8 @@ const PurchaseSchema = new mongoose.Schema(
     creatorUrl: { type: String },
     videoTitle: { type: String },
     email: { type: String },
+    accessToken: { type: String, index: true },
+    accessTokenExpiresAt: Date,
   },
   { timestamps: true }
 );
