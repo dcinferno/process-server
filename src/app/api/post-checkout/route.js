@@ -86,12 +86,22 @@ export async function GET(req) {
       );
     }
 
-    // Resolve redirect site safely
-    const redirectSite = SITE_MAP[site] || allowedOrigin;
+    // Update purchase record
+    await Purchase.findByIdAndUpdate(
+      purchaseId,
+      {
+        status: "paid",
+        email,
+        paidAt: new Date(),
+        stripeSessionId: sessionId,
+      },
+      { new: true }
+    );
 
-    const redirectUrl = `${redirectSite}/success?videoId=${encodeURIComponent(
-      videoId || ""
-    )}`;
+    const redirectSite = SITE_MAP[site] ?? allowedOrigin;
+
+    // Redirect user back to the actual front-end
+    const redirectUrl = `${redirectSite}/success?videoId=${videoId}`;
 
     // Safari-friendly redirect
     return new Response(null, {
