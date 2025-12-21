@@ -20,6 +20,10 @@ function normalizeMetadata(meta = {}, purchaseId) {
   };
 }
 
+function anonGuid() {
+  return `tg_anon_${crypto.randomUUID()}`;
+}
+
 export async function POST(req) {
   await connectDB();
 
@@ -54,10 +58,10 @@ export async function POST(req) {
 
   // 💰 Compute final price
   const finalAmount = computeFinalPrice(video);
-
+  const anonUserId = anonGuid();
   // 🧾 Create pending purchase FIRST
   const pendingPurchase = await Purchase.create({
-    userId: null, // explicitly anonymous
+    userId: anonUserId, // explicitly anonymous
     videoId: video._id.toString(),
     videoTitle: video.title,
     creatorName: video.creatorName,
