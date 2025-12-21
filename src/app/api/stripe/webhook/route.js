@@ -123,6 +123,7 @@ export async function POST(req) {
   const isTest = !event.livemode;
 
   // SAFE → Only anonymous metadata
+  const rawMeta = session.metadata || {};
   const meta = normalizeMetadata(rawMeta, rawMeta.purchaseId);
 
   const { purchaseId, videoId } = meta;
