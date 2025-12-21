@@ -19,21 +19,56 @@ export async function GET(req) {
     const filter = { status: "paid" };
 
     if (creator) {
-      filter.creatorName = new RegExp(`^${creator}$`, "i");
+      filter.creatorName = new RegExp(creator, "i");
     }
 
     if (email) {
-      filter.email = new RegExp(`^${email}$`, "i");
+      filter.email = new RegExp(email, "i");
     }
 
+    // ----------------------------------
+    // DATE FILTER (robust)
+    // ----------------------------------
     if (from || to) {
-      filter.purchasedAt = {};
-      if (from) filter.purchasedAt.$gte = new Date(from);
-      if (to) filter.purchasedAt.$lte = new Date(to);
+      filter.$expr = {
+        $and: [
+          {
+            $gte: [
+              {
+                $ifNull: [
+                  "$purchasedAt",
+                  { $ifNull: ["$paidAt", "$createdAt"] },
+                ],
+              },
+              from ? new Date(from) : new Date(0),
+            ],
+          },
+          {
+            $lte: [
+              {
+                $ifNull: [
+                  "$purchasedAt",
+                  { $ifNull: ["$paidAt", "$createdAt"] },
+                ],
+              },
+              to ? new Date(to) : new Date(),
+            ],
+          },
+        ],
+      };
     }
 
     const [purchases, total] = await Promise.all([
-      Purchase.find(filter).sort({ purchasedAt: -1 }).skip(skip).limit(limit),
+      Purchase.find(filter)
+        .sort({
+          purchasedAt: -1,
+          paidAt: -1,
+          createdAt: -1,
+        })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
       Purchase.countDocuments(filter),
     ]);
 

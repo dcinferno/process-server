@@ -120,7 +120,7 @@ export default function PurchasesDashboard() {
                       <td className="p-3">${p.amount?.toFixed(2)}</td>
                       <td className="p-3">${(p.amount * 0.9).toFixed(2)}</td>
                       <td className="p-3">
-                        {new Date(p.purchasedAt).toLocaleString()}
+                        {new Date(p.purchasedAt || p.paidAt).toLocaleString()}
                       </td>
                     </tr>
                   ))}
@@ -151,7 +151,7 @@ export default function PurchasesDashboard() {
                 </div>
 
                 <div className="text-xs text-gray-500 mt-1">
-                  {new Date(p.purchasedAt).toLocaleDateString()}
+                  {new Date(p.purchasedAt || p.paidAt).toLocaleDateString()}
                 </div>
               </div>
             ))}
