@@ -43,7 +43,7 @@ export async function POST(req) {
   try {
     const session = await createCheckoutSession({
       finalAmount,
-      successUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL}/success?video=${video._id}`,
+      successUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/post-checkout?session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL}/cancel`,
       metadata: {
         videoId: video._id.toString(),

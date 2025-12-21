@@ -68,6 +68,7 @@ export async function GET(req) {
       },
       { new: true }
     );
+
     const redirectSite = SITE_MAP[site] ?? allowedOrigin;
 
     // Redirect user back to the actual front-end
