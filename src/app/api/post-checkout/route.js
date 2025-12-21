@@ -6,11 +6,27 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 const allowedOrigin = process.env.NEXT_PUBLIC_FRONTEND_URL;
 
-// Maps "site" → Neutral redirect entrypoint (NOT your real NSFW URL!)
+// Maps "site" → neutral redirect entrypoint
 const SITE_MAP = {
   A: process.env.NEXT_PUBLIC_FRONTEND_URL,
 };
 
+/* ------------------------------------------
+   METADATA NORMALIZER (DEFENSIVE)
+------------------------------------------- */
+function normalizeMetadata(meta = {}, fallbackPurchaseId) {
+  const purchaseId = String(meta.purchaseId || fallbackPurchaseId || "");
+  return {
+    purchaseId,
+    videoId: String(meta.videoId || ""),
+    userId: String(meta.userId || `anon_${purchaseId}`),
+    site: String(meta.site || "A"),
+  };
+}
+
+/* ------------------------------------------
+   OPTIONS
+------------------------------------------- */
 export function OPTIONS() {
   return new Response(null, {
     status: 204,
@@ -24,6 +40,9 @@ export function OPTIONS() {
   });
 }
 
+/* ------------------------------------------
+   GET
+------------------------------------------- */
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const sessionId = searchParams.get("session_id");
@@ -41,38 +60,38 @@ export async function GET(req) {
   try {
     await connectDB();
 
-    // Retrieve session safely
+    // Retrieve Checkout Session
     const session = await stripe.checkout.sessions.retrieve(sessionId);
 
-    // SAFE — Stripe metadata contains only anonymous IDs
-    const purchaseId = session.metadata?.purchaseId;
-    const userId = session.metadata?.userId;
-    const videoId = session.metadata?.videoId;
-    const site = session.metadata?.site;
+    // Normalize metadata safely
+    const meta = normalizeMetadata(session.metadata);
 
+    const { purchaseId, videoId, site } = meta;
     const email = session.customer_details?.email || "";
 
-    if (!purchaseId || !videoId || !userId) {
-      console.error("Missing metadata:", session.metadata);
-      return new Response("Invalid metadata", { status: 400 });
+    if (!purchaseId || !videoId) {
+      console.error("❌ Invalid metadata in post-checkout:", session.metadata);
+      // STILL redirect user — never trap a paid customer
+    } else {
+      // Idempotent update
+      await Purchase.findByIdAndUpdate(
+        purchaseId,
+        {
+          status: "paid",
+          email,
+          paidAt: new Date(),
+          stripeSessionId: sessionId,
+        },
+        { new: true }
+      );
     }
 
-    // Update purchase record
-    await Purchase.findByIdAndUpdate(
-      purchaseId,
-      {
-        status: "paid",
-        email,
-        paidAt: new Date(),
-        stripeSessionId: sessionId,
-      },
-      { new: true }
-    );
+    // Resolve redirect site safely
+    const redirectSite = SITE_MAP[site] || allowedOrigin;
 
-    const redirectSite = SITE_MAP[site] ?? allowedOrigin;
-
-    // Redirect user back to the actual front-end
-    const redirectUrl = `${redirectSite}/success?videoId=${videoId}`;
+    const redirectUrl = `${redirectSite}/success?videoId=${encodeURIComponent(
+      videoId || ""
+    )}`;
 
     // Safari-friendly redirect
     return new Response(null, {
@@ -85,12 +104,16 @@ export async function GET(req) {
       },
     });
   } catch (err) {
-    console.error("post-checkout error:", err);
-    return new Response("Post-checkout error", {
-      status: 500,
+    console.error("❌ post-checkout error:", err);
+
+    // Last-resort redirect (never dead-end user)
+    return new Response(null, {
+      status: 302,
       headers: {
+        Location: `${allowedOrigin}/success`,
         "Access-Control-Allow-Origin": allowedOrigin,
         "Access-Control-Allow-Credentials": "true",
+        Vary: "Origin",
       },
     });
   }

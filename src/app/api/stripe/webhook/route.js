@@ -20,6 +20,14 @@ export async function HEAD() {
 /* ------------------------------------------
    HTML SAFE HELPERS
 ------------------------------------------- */
+
+function normalizeMetadata(meta = {}, purchaseId) {
+  return {
+    purchaseId: String(meta.purchaseId || purchaseId),
+    videoId: String(meta.videoId || ""),
+    userId: String(meta.userId || `anon_${purchaseId}`),
+  };
+}
 function escapeHtml(t = "") {
   return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -115,11 +123,9 @@ export async function POST(req) {
   const isTest = !event.livemode;
 
   // SAFE → Only anonymous metadata
-  const purchaseId = session.metadata?.purchaseId;
-  const userId = session.metadata?.userId ?? null;
-  const videoId = session.metadata?.videoId ?? null;
-  const site = session.metadata?.site ?? null;
-  const source = session.metadata?.source ?? null;
+  const meta = normalizeMetadata(rawMeta, rawMeta.purchaseId);
+
+  const { purchaseId, videoId } = meta;
 
   if (!purchaseId || !videoId) {
     console.error("❌ Missing safe metadata:", session.metadata);
