@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { connectDB } from "@/lib/db";
 import Purchase from "@/lib/models/Purchase";
+import crypto from "crypto";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -10,6 +11,10 @@ const allowedOrigin = process.env.NEXT_PUBLIC_FRONTEND_URL;
 const SITE_MAP = {
   A: process.env.NEXT_PUBLIC_FRONTEND_URL,
 };
+
+function generateAccessToken() {
+  return crypto.randomBytes(32).toString("hex");
+}
 
 /* ------------------------------------------
    METADATA NORMALIZER (DEFENSIVE)
@@ -85,6 +90,7 @@ export async function GET(req) {
         { new: true }
       );
     }
+    const token = generateAccessToken();
 
     // Update purchase record
     await Purchase.findByIdAndUpdate(
@@ -93,6 +99,8 @@ export async function GET(req) {
         status: "paid",
         email,
         paidAt: new Date(),
+        accessToken: token,
+        accessTokenExpiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
         stripeSessionId: sessionId,
       },
       { new: true }
@@ -101,7 +109,7 @@ export async function GET(req) {
     const redirectSite = SITE_MAP[site] ?? allowedOrigin;
 
     // Redirect user back to the actual front-end
-    const redirectUrl = `${redirectSite}/success?videoId=${videoId}`;
+    const redirectUrl = `${redirectSite}/success?videoId=${videoId}&token=${token}`;
 
     // Safari-friendly redirect
     return new Response(null, {
