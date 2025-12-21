@@ -24,47 +24,34 @@ export function OPTIONS() {
 //  POST — Check Purchase
 // ----------------------------
 export async function POST(req) {
-  try {
-    const { userId, videoId } = await req.json();
+  await connectDB();
 
-    if (!userId || !videoId) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Missing userId or videoId" }),
-        {
-          status: 400,
-          headers: {
-            "Access-Control-Allow-Origin": allowedOrigin,
-            "Access-Control-Allow-Credentials": "true",
-            Vary: "Origin",
-          },
-        }
-      );
-    }
+  const { userId, videoId } = await req.json();
 
-    await connectDB();
-
-    const purchase = await Purchase.findOne({ userId, videoId });
-
-    return new Response(JSON.stringify({ success: !!purchase }), {
-      status: 200,
-      headers: {
-        "Access-Control-Allow-Origin": allowedOrigin,
-        "Access-Control-Allow-Credentials": "true",
-        Vary: "Origin",
-      },
-    });
-  } catch (err) {
-    console.error("check-purchase error:", err);
-    return new Response(
-      JSON.stringify({ success: false, error: "Server error" }),
-      {
-        status: 500,
-        headers: {
-          "Access-Control-Allow-Origin": allowedOrigin,
-          "Access-Control-Allow-Credentials": "true",
-          Vary: "Origin",
-        },
-      }
-    );
+  if (!videoId) {
+    return Response.json({ success: false }, { status: 400 });
   }
+
+  const thirtyMinutesAgo = new Date(Date.now() - 1000 * 60 * 30);
+
+  let purchase;
+
+  if (userId) {
+    // ✅ SITE PURCHASE (permanent)
+    purchase = await Purchase.findOne({
+      userId,
+      videoId,
+      status: "paid",
+    });
+  } else {
+    // ✅ TG / ANON PURCHASE (time-limited)
+    purchase = await Purchase.findOne({
+      videoId,
+      status: "paid",
+      paidAt: { $gte: thirtyMinutesAgo },
+      site: "TG",
+    });
+  }
+
+  return Response.json({ success: !!purchase });
 }
