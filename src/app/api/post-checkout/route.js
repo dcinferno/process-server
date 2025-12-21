@@ -69,13 +69,10 @@ export async function GET(req) {
       { new: true }
     );
 
-    if (!SITE_MAP[site]) {
-      console.error("Unknown site:", site);
-      return new Response("Invalid site", { status: 400 });
-    }
+    const redirectSite = SITE_MAP[site] ?? allowedOrigin;
 
     // Redirect user back to the actual front-end
-    const redirectUrl = `${SITE_MAP[site]}/success?videoId=${videoId}`;
+    const redirectUrl = `${redirectSite}/success?videoId=${videoId}`;
 
     // Safari-friendly redirect
     return new Response(null, {
