@@ -12,59 +12,43 @@ export async function GET(req) {
     const from = searchParams.get("from");
     const to = searchParams.get("to");
 
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "20", 10);
     const skip = (page - 1) * limit;
 
     const filter = { status: "paid" };
 
-    if (creator) {
-      filter.creatorName = new RegExp(creator, "i");
-    }
+    // Text filters
+    if (creator) filter.creatorName = new RegExp(creator, "i");
+    if (email) filter.email = new RegExp(email, "i");
 
-    if (email) {
-      filter.email = new RegExp(email, "i");
-    }
-
-    // ----------------------------------
-    // DATE FILTER (robust)
-    // ----------------------------------
+    // Date filter (safe fallback order)
     if (from || to) {
-      filter.$expr = {
-        $and: [
-          {
-            $gte: [
-              {
-                $ifNull: [
-                  "$purchasedAt",
-                  { $ifNull: ["$paidAt", "$createdAt"] },
-                ],
-              },
-              from ? new Date(from) : new Date(0),
-            ],
+      filter.$or = [
+        {
+          purchasedAt: {
+            ...(from && { $gte: new Date(from) }),
+            ...(to && { $lte: new Date(to) }),
           },
-          {
-            $lte: [
-              {
-                $ifNull: [
-                  "$purchasedAt",
-                  { $ifNull: ["$paidAt", "$createdAt"] },
-                ],
-              },
-              to ? new Date(to) : new Date(),
-            ],
+        },
+        {
+          paidAt: {
+            ...(from && { $gte: new Date(from) }),
+            ...(to && { $lte: new Date(to) }),
           },
-        ],
-      };
+        },
+        {
+          createdAt: {
+            ...(from && { $gte: new Date(from) }),
+            ...(to && { $lte: new Date(to) }),
+          },
+        },
+      ];
     }
 
     const [purchases, total] = await Promise.all([
       Purchase.find(filter)
-        .sort({
-          purchasedAt: -1,
-          paidAt: -1,
-          createdAt: -1,
-        })
+        .sort({ purchasedAt: -1, paidAt: -1, createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
@@ -77,7 +61,7 @@ export async function GET(req) {
       total,
       page,
       limit,
-      totalPages: Math.ceil(total / limit),
+      totalPages: Math.max(1, Math.ceil(total / limit)),
     });
   } catch (err) {
     console.error("❌ Error fetching purchases:", err);

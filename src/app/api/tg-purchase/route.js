@@ -1,24 +1,13 @@
 // process-server/app/api/tg-purchase/route.js
 export const runtime = "nodejs";
 
+import crypto from "crypto"; // ✅ FIX #1
 import { connectDB } from "../../../lib/db";
 import Purchase from "../../../lib/models/Purchase";
 import { computeFinalPrice } from "../../../lib/calculatePrices";
 import { createCheckoutSession } from "../../../lib/createCheckoutSession";
 
 const allowedOrigin = process.env.NEXT_PUBLIC_FRONTEND_URL;
-
-/* ------------------------------------------
-   STRIPE METADATA NORMALIZER
-------------------------------------------- */
-function normalizeMetadata(meta = {}, purchaseId) {
-  return {
-    purchaseId: String(meta.purchaseId || purchaseId),
-    videoId: String(meta.videoId || "unknown_video"),
-    userId: String(meta.userId || `tg_anon_${purchaseId}`),
-    site: String(meta.site || "TG"),
-  };
-}
 
 function anonGuid() {
   return `tg_anon_${crypto.randomUUID()}`;
@@ -58,10 +47,12 @@ export async function POST(req) {
 
   // 💰 Compute final price
   const finalAmount = computeFinalPrice(video);
-  const anonUserId = anonGuid();
+
   // 🧾 Create pending purchase FIRST
+  const anonUserId = anonGuid();
+
   const pendingPurchase = await Purchase.create({
-    userId: anonUserId, // explicitly anonymous
+    userId: anonUserId,
     videoId: video._id.toString(),
     videoTitle: video.title,
     creatorName: video.creatorName,
@@ -72,15 +63,10 @@ export async function POST(req) {
     site: "TG",
   });
 
-  // 🔐 SAFE STRIPE METADATA (STRINGS ONLY)
-  const metadata = normalizeMetadata(
-    {
-      purchaseId: pendingPurchase._id.toString(),
-      videoId: video._id.toString(),
-      site: "TG",
-    },
-    pendingPurchase._id.toString()
-  );
+  // 🔐 Stripe metadata: MINIMAL & SAFE
+  const metadata = {
+    purchaseId: pendingPurchase._id.toString(),
+  };
 
   try {
     const session = await createCheckoutSession({

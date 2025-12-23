@@ -22,18 +22,6 @@ function corsHeaders(req) {
 }
 
 /* ------------------------------------------
-   STRIPE METADATA NORMALIZER (CRITICAL)
-------------------------------------------- */
-function normalizeMetadata(meta = {}, purchaseId) {
-  return {
-    purchaseId: String(meta.purchaseId || purchaseId),
-    videoId: String(meta.videoId || "unknown_video"),
-    userId: String(meta.userId || `anon_${purchaseId}`),
-    site: String(meta.site || "unknown"),
-  };
-}
-
-/* ------------------------------------------
    OPTIONS
 ------------------------------------------- */
 export async function OPTIONS(req) {
@@ -60,7 +48,9 @@ export async function POST(req) {
 
     await connectDB();
 
-    // Prevent duplicate purchases (only if userId exists)
+    // ------------------------------------------
+    // 1️⃣ Prevent duplicate paid purchases
+    // ------------------------------------------
     if (userId) {
       const existing = await Purchase.findOne({
         userId,
@@ -79,7 +69,9 @@ export async function POST(req) {
       }
     }
 
-    // Fetch video info (Stripe never sees this)
+    // ------------------------------------------
+    // 2️⃣ Fetch video (Stripe NEVER sees this)
+    // ------------------------------------------
     const videoRes = await fetch(`${allowedOrigin}/api/videos?id=${videoId}`);
     if (!videoRes.ok) {
       return new Response("Video not found", {
@@ -96,47 +88,56 @@ export async function POST(req) {
       });
     }
 
-    // Compute final price server-side
-    const finalAmount = computeFinalPrice(video);
+    // ------------------------------------------
+    // 3️⃣ Compute final price (discount-aware)
+    //     🔁 UPDATED: computeFinalPrice now
+    //     consults the Discounts collection
+    // ------------------------------------------
+    const pricing = await computeFinalPrice(video);
+    // pricing = {
+    //   basePrice,
+    //   finalPrice,
+    //   discountId,
+    //   discountLabel
+    // }
 
-    // Find or create pending purchase
-    let pendingPurchase = await Purchase.findOne({
+    // Stripe expects cents
+    const finalAmount = Math.round(pricing.finalPrice * 100);
+
+    // ------------------------------------------
+    // 4️⃣ Create pending purchase (DB is source of truth)
+    //     🔁 UPDATED: store pricing breakdown
+    // ------------------------------------------
+    const pendingPurchase = await Purchase.create({
       userId: userId || null,
       videoId,
+      videoTitle: video.title,
+      creatorName: video.creatorName,
+      creatorTelegramId: video.creatorTelegramId,
+      creatorUrl: video.socialMediaUrl,
+
+      basePrice: pricing.basePrice, // 🔁 NEW
+      finalPrice: pricing.finalPrice, // 🔁 NEW
+      discountId: pricing.discountId || null, // 🔁 NEW
+      discountLabel: pricing.discountLabel || null, // 🔁 NEW
+
+      amount: pricing.finalPrice, // payout uses FINAL price only
       status: "pending",
+      site,
     });
 
-    if (!pendingPurchase) {
-      pendingPurchase = await Purchase.create({
-        userId: userId || null,
-        videoId,
-        videoTitle: video.title,
-        creatorName: video.creatorName,
-        creatorTelegramId: video.creatorTelegramId,
-        creatorUrl: video.socialMediaUrl,
-        amount: finalAmount / 100,
-        status: "pending",
-        site,
-      });
-    }
-
-    // 🔐 SAFE STRIPE METADATA (NO NULLS EVER)
-    const metadata = normalizeMetadata(
-      {
-        purchaseId: pendingPurchase._id.toString(),
-        userId,
-        videoId,
-        site,
-      },
-      pendingPurchase._id.toString()
-    );
-
-    // Create Stripe Checkout session
+    // ------------------------------------------
+    // 5️⃣ Stripe metadata — MINIMAL & SAFE
+    //     🔒 ONLY purchaseId (+ site if you want)
+    // ------------------------------------------
     const session = await createCheckoutSession({
       finalAmount,
       successUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/post-checkout?session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL}/cancel`,
-      metadata,
+      metadata: {
+        purchaseId: pendingPurchase._id.toString(), // ✅ ONLY THIS
+        site, // optional, safe
+      },
     });
 
     return new Response(JSON.stringify({ url: session.url }), {
