@@ -90,27 +90,38 @@ export async function POST(req) {
   }
 
   // -------------------------
-  // 4️⃣ Create pending purchase SECOND
+  //  Find or create pending purchase (OPTION B)
   // -------------------------
-  await Purchase.create({
-    userId: anonUserId,
-    videoId: video._id.toString(),
-    videoTitle: video.title,
-
-    creatorName: video.creatorName,
-    creatorTelegramId: video.creatorTelegramId,
-    creatorUrl: video.socialMediaUrl,
-
-    basePrice: pricing.basePrice,
-    finalPrice: pricing.finalPrice,
-    discountId: pricing.discountId,
-    discountLabel: pricing.discountLabel,
-
-    amount: pricing.finalPrice,
+  let purchase = await Purchase.findOne({
+    userId,
+    videoId,
     status: "pending",
-    stripeEventId: session.id,
-    site: "TG",
   });
+
+  if (!purchase) {
+    purchase = await Purchase.create({
+      userId,
+      videoId,
+      videoTitle: video.title,
+
+      creatorName: video.creatorName,
+      creatorTelegramId: video.creatorTelegramId,
+      creatorUrl: video.socialMediaUrl,
+
+      basePrice,
+      finalPrice,
+      discountId: pricing.discountId,
+      discountLabel: pricing.discountLabel,
+
+      amount: finalPrice,
+      status: "pending",
+      site,
+    });
+  }
+
+  // Always (re)attach the Stripe session ID
+  purchase.stripeEventId = session.id;
+  await purchase.save();
 
   // -------------------------
   // 5️⃣ Return checkout URL
