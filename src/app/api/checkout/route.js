@@ -159,6 +159,16 @@ export async function POST(req) {
         status: "pending",
         site,
       });
+    } else {
+      // BACKFILL for legacy pending purchases
+      purchase.basePrice = basePrice;
+      purchase.finalPrice = finalPrice;
+      purchase.amount = finalPrice;
+
+      purchase.discountId = pricing.discountId;
+      purchase.discountLabel = pricing.discountLabel;
+
+      purchase.site = site;
     }
 
     // Always (re)attach the Stripe session ID
