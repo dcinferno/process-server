@@ -5,18 +5,23 @@ import crypto from "crypto";
 import { connectDB } from "../../../lib/db";
 import Purchase from "../../../lib/models/Purchase";
 import { createCheckoutSession } from "../../../lib/createCheckoutSession";
-import { updateCheckoutSessionMetadata } from "../../../lib/updateCheckoutSessionMetadata";
 
 const allowedOrigin = process.env.NEXT_PUBLIC_FRONTEND_URL;
 
+// --------------------------------------------------
+// Helpers
+// --------------------------------------------------
 function anonGuid() {
   return `tg_anon_${crypto.randomUUID()}`;
 }
 
+// --------------------------------------------------
+// POST
+// --------------------------------------------------
 export async function POST(req) {
   await connectDB();
 
-  // 🔐 Internal auth (server-to-server only)
+  // 🔐 Internal auth (server → server only)
   const token = req.headers.get("x-internal-token");
   if (token !== process.env.INTERNAL_API_TOKEN) {
     return new Response("Forbidden", { status: 403 });
@@ -34,9 +39,9 @@ export async function POST(req) {
     return new Response("Missing videoId", { status: 400 });
   }
 
-  // -------------------------
-  // 1️⃣ Fetch SINGLE priced video
-  // -------------------------
+  // --------------------------------------------------
+  // 1️⃣ Fetch SINGLE priced video (source of truth)
+  // --------------------------------------------------
   const videoRes = await fetch(`${allowedOrigin}/api/videos/${videoId}`);
   if (!videoRes.ok) {
     return new Response("Video not found", { status: 404 });
@@ -51,57 +56,31 @@ export async function POST(req) {
     typeof video.basePrice !== "number" ||
     typeof video.finalPrice !== "number"
   ) {
-    return new Response("Video not purchasable", { status: 404 });
+    return new Response("Video not purchasable", { status: 400 });
   }
 
-  // -------------------------
-  // 2️⃣ Prepare pricing (NO recompute)
-  // -------------------------
-  const pricing = {
-    basePrice: video.basePrice,
-    finalPrice: video.finalPrice,
-    discountId: video.discount?.id ?? null,
-    discountLabel: video.discount?.name ?? null,
-  };
+  const basePrice = video.basePrice;
+  const finalPrice = video.finalPrice;
 
-  const finalAmount = Math.round(pricing.finalPrice * 100); // cents
-
+  const finalAmount = Math.round(finalPrice * 100); // cents
   if (finalAmount <= 0) {
     return new Response("Invalid price", { status: 400 });
   }
 
-  // -------------------------
-  // 3️⃣ Create Stripe session FIRST
-  // -------------------------
+  // --------------------------------------------------
+  // 2️⃣ Create / reuse PENDING purchase FIRST (Option B)
+  // --------------------------------------------------
   const anonUserId = anonGuid();
 
-  const session = await createCheckoutSession({
-    finalAmount,
-    successUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/post-checkout?session_id={CHECKOUT_SESSION_ID}`,
-    cancelUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL}/cancel`,
-    metadata: {
-      videoId,
-      userId: anonUserId,
-      site: "TG",
-    },
-  });
-
-  if (!session?.id || !session?.url) {
-    return new Response("Stripe session failed", { status: 500 });
-  }
-
-  // -------------------------
-  // 4️⃣ Create / reuse pending purchase FIRST
-  // -------------------------
   let purchase = await Purchase.findOne({
-    userId,
+    userId: anonUserId,
     videoId,
     status: "pending",
   });
 
   if (!purchase) {
     purchase = await Purchase.create({
-      userId,
+      userId: anonUserId,
       videoId,
       videoTitle: video.title,
 
@@ -111,36 +90,28 @@ export async function POST(req) {
 
       basePrice,
       finalPrice,
-      discountId: pricing.discountId,
-      discountLabel: pricing.discountLabel,
-
       amount: finalPrice,
+
+      discountId: video.discount?.id ?? null,
+      discountLabel: video.discount?.name ?? null,
+
       status: "pending",
-      site,
+      site: "TG",
     });
-  } else {
-    // Backfill safety
-    purchase.basePrice = basePrice;
-    purchase.finalPrice = finalPrice;
-    purchase.amount = finalPrice;
-    purchase.discountId = pricing.discountId;
-    purchase.discountLabel = pricing.discountLabel;
-    purchase.site = site;
-    await purchase.save();
   }
 
-  // -------------------------
-  // 5️⃣ Create Stripe session WITH purchaseId
-  // -------------------------
+  // --------------------------------------------------
+  // 3️⃣ Create Stripe session WITH purchaseId
+  // --------------------------------------------------
   const session = await createCheckoutSession({
     finalAmount,
     successUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/post-checkout?session_id={CHECKOUT_SESSION_ID}`,
     cancelUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL}/cancel`,
     metadata: {
-      purchaseId: purchase._id.toString(), // 🔑 GUARANTEED
-      userId,
+      purchaseId: purchase._id.toString(), // 🔑 CRITICAL
+      userId: anonUserId,
       videoId,
-      site,
+      site: "TG",
     },
   });
 
@@ -148,12 +119,14 @@ export async function POST(req) {
     throw new Error("Stripe session failed");
   }
 
-  // Attach Stripe session ID to purchase
+  // --------------------------------------------------
+  // 4️⃣ Attach Stripe session ID to purchase
+  // --------------------------------------------------
   purchase.stripeEventId = session.id;
   await purchase.save();
 
-  // -------------------------
+  // --------------------------------------------------
   // 5️⃣ Return checkout URL
-  // -------------------------
+  // --------------------------------------------------
   return Response.json({ checkoutUrl: session.url });
 }
