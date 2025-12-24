@@ -80,6 +80,9 @@ export async function POST(req) {
 
     const data = await videoRes.json();
     const video = data?.videos?.[0];
+    if (!Array.isArray(data.videos) || !data.videos.length) {
+      throw new Error("Video not returned");
+    }
 
     if (
       typeof video.basePrice !== "number" ||
