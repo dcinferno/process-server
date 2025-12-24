@@ -71,13 +71,13 @@ export async function POST(req) {
     // -------------------------
     // 2️⃣ Fetch SINGLE video (already priced)
     // -------------------------
-    const videoRes = fetch(`${allowedOrigin}/api/videos/${videoId}`);
+    const videoRes = await fetch(`${allowedOrigin}/api/videos/${videoId}`);
 
     if (!videoRes.ok) {
       throw new Error("Video not found");
     }
 
-    const data = await videoRes.json();
+    const video = await videoRes.json();
 
     if (
       typeof video.basePrice !== "number" ||
