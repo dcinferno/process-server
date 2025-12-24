@@ -145,12 +145,12 @@ export async function POST(req) {
       creatorTelegramId: video.creatorTelegramId,
       creatorUrl: video.socialMediaUrl,
 
-      basePrice: pricing.basePrice,
-      finalPrice: pricing.finalPrice,
+      basePrice: basePrice,
+      finalPrice: finalPrice,
       discountId: pricing.discountId,
       discountLabel: pricing.discountLabel,
 
-      amount: pricing.finalPrice,
+      amount: finalPrice,
       status: "pending",
       stripeEventId: session.id,
     });
