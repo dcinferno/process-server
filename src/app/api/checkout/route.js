@@ -72,35 +72,19 @@ export async function POST(req) {
     // ------------------------------------------
     // 2️⃣ Fetch video (Stripe NEVER sees this)
     // ------------------------------------------
-    const videoRes = await fetch(`${allowedOrigin}/api/videos?id=${videoId}`);
-    if (!videoRes.ok) {
-      return new Response("Video not found", {
-        status: 404,
-        headers: corsHeaders(req),
-      });
-    }
-
+    const videoRes = await fetch(`${allowedOrigin}/api/videos/${videoId}`);
     const video = await videoRes.json();
-    if (!video || typeof video.price !== "number") {
-      return new Response("Invalid video pricing", {
-        status: 400,
-        headers: corsHeaders(req),
-      });
+
+    if (!video || typeof video.finalPrice !== "number") {
+      throw new Error("Invalid video pricing");
     }
 
-    // ------------------------------------------
-    // 3️⃣ Compute final price (discount-aware)
-    //     🔁 UPDATED: computeFinalPrice now
-    //     consults the Discounts collection
-    // ------------------------------------------
-    const pricing = await computeFinalPrice(video);
-    // pricing = {
-    //   basePrice,
-    //   finalPrice,
-    //   discountId,
-    //   discountLabel
-    // }
-
+    const pricing = {
+      basePrice: video.basePrice,
+      finalPrice: video.finalPrice,
+      discountId: video.discount?.id ?? null,
+      discountLabel: video.discount?.name ?? null,
+    };
     // Stripe expects cents
     const finalAmount = Math.round(pricing.finalPrice * 100);
 
@@ -136,7 +120,6 @@ export async function POST(req) {
       cancelUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL}/cancel`,
       metadata: {
         purchaseId: pendingPurchase._id.toString(), // ✅ ONLY THIS
-        site, // optional, safe
       },
     });
 
