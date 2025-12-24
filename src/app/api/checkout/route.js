@@ -1,7 +1,5 @@
-import Stripe from "stripe";
 import { connectDB } from "../../../lib/db";
 import Purchase from "../../../lib/models/Purchase";
-import { computeFinalPrice } from "../../../lib/calculatePrices";
 import { createCheckoutSession } from "../../../lib/createCheckoutSession";
 
 const allowedOrigin = process.env.NEXT_PUBLIC_FRONTEND_URL;
@@ -39,7 +37,10 @@ export async function POST(req) {
     const body = await req.json();
     const { userId, videoId, site } = body;
 
-    if (!videoId || !site) {
+    // -------------------------
+    // 0️⃣ Validate input
+    // -------------------------
+    if (!userId || !videoId || !site) {
       return new Response("Missing fields", {
         status: 400,
         headers: corsHeaders(req),
@@ -48,87 +49,108 @@ export async function POST(req) {
 
     await connectDB();
 
-    // ------------------------------------------
+    // -------------------------
     // 1️⃣ Prevent duplicate paid purchases
-    // ------------------------------------------
-    if (userId) {
-      const existing = await Purchase.findOne({
-        userId,
-        videoId,
-        status: "paid",
-      });
+    // -------------------------
+    const existing = await Purchase.findOne({
+      userId,
+      videoId,
+      status: "paid",
+    });
 
-      if (existing) {
-        return new Response(
-          JSON.stringify({ error: "Already purchased", purchased: true }),
-          {
-            status: 409,
-            headers: corsHeaders(req),
-          }
-        );
-      }
+    if (existing) {
+      return new Response(
+        JSON.stringify({ error: "Already purchased", purchased: true }),
+        {
+          status: 409,
+          headers: corsHeaders(req),
+        }
+      );
     }
 
-    // ------------------------------------------
-    // 2️⃣ Fetch video (Stripe NEVER sees this)
-    // ------------------------------------------
+    // -------------------------
+    // 2️⃣ Fetch SINGLE video (already priced)
+    // -------------------------
     const videoRes = await fetch(`${allowedOrigin}/api/videos/${videoId}`);
+
+    if (!videoRes.ok) {
+      throw new Error("Video not found");
+    }
+
     const video = await videoRes.json();
 
-    if (!video || typeof video.finalPrice !== "number") {
+    if (
+      typeof video.basePrice !== "number" ||
+      typeof video.finalPrice !== "number"
+    ) {
       throw new Error("Invalid video pricing");
     }
 
+    // -------------------------
+    // 3️⃣ Prepare pricing (NO recompute)
+    // -------------------------
     const pricing = {
       basePrice: video.basePrice,
       finalPrice: video.finalPrice,
       discountId: video.discount?.id ?? null,
       discountLabel: video.discount?.name ?? null,
     };
-    // Stripe expects cents
-    const finalAmount = Math.round(pricing.finalPrice * 100);
 
-    // ------------------------------------------
-    // 4️⃣ Create pending purchase (DB is source of truth)
-    //     🔁 UPDATED: store pricing breakdown
-    // ------------------------------------------
-    const pendingPurchase = await Purchase.create({
-      userId: userId || null,
-      videoId,
-      videoTitle: video.title,
-      creatorName: video.creatorName,
-      creatorTelegramId: video.creatorTelegramId,
-      creatorUrl: video.socialMediaUrl,
+    const finalAmount = Math.round(pricing.finalPrice * 100); // cents
 
-      basePrice: pricing.basePrice, // 🔁 NEW
-      finalPrice: pricing.finalPrice, // 🔁 NEW
-      discountId: pricing.discountId || null, // 🔁 NEW
-      discountLabel: pricing.discountLabel || null, // 🔁 NEW
+    if (finalAmount <= 0) {
+      throw new Error("Invalid Stripe amount");
+    }
 
-      amount: pricing.finalPrice, // payout uses FINAL price only
-      status: "pending",
-      site,
-    });
-
-    // ------------------------------------------
-    // 5️⃣ Stripe metadata — MINIMAL & SAFE
-    //     🔒 ONLY purchaseId (+ site if you want)
-    // ------------------------------------------
+    // -------------------------
+    // 4️⃣ Create Stripe session FIRST
+    // -------------------------
     const session = await createCheckoutSession({
       finalAmount,
       successUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/post-checkout?session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL}/cancel`,
       metadata: {
-        purchaseId: pendingPurchase._id.toString(), // ✅ ONLY THIS
+        userId,
+        videoId,
       },
     });
 
+    if (!session?.id || !session?.url) {
+      throw new Error("Stripe session failed");
+    }
+
+    // -------------------------
+    // 5️⃣ Create pending purchase SECOND
+    // -------------------------
+    await Purchase.create({
+      userId,
+      videoId,
+      videoTitle: video.title,
+
+      creatorName: video.creatorName,
+      creatorTelegramId: video.creatorTelegramId,
+      creatorUrl: video.socialMediaUrl,
+
+      basePrice: pricing.basePrice,
+      finalPrice: pricing.finalPrice,
+      discountId: pricing.discountId,
+      discountLabel: pricing.discountLabel,
+
+      amount: pricing.finalPrice,
+      status: "pending",
+      stripeEventId: session.id,
+    });
+
+    // -------------------------
+    // 6️⃣ Return Stripe URL
+    // -------------------------
     return new Response(JSON.stringify({ url: session.url }), {
       status: 200,
       headers: corsHeaders(req),
     });
   } catch (err) {
     console.error("❌ Checkout error:", err);
+
     return new Response("Checkout Error", {
       status: 500,
       headers: corsHeaders(req),

@@ -1,10 +1,9 @@
 // process-server/app/api/tg-purchase/route.js
 export const runtime = "nodejs";
 
-import crypto from "crypto"; // ✅ FIX #1
+import crypto from "crypto";
 import { connectDB } from "../../../lib/db";
 import Purchase from "../../../lib/models/Purchase";
-import { computeFinalPrice } from "../../../lib/calculatePrices";
 import { createCheckoutSession } from "../../../lib/createCheckoutSession";
 
 const allowedOrigin = process.env.NEXT_PUBLIC_FRONTEND_URL;
@@ -34,55 +33,88 @@ export async function POST(req) {
     return new Response("Missing videoId", { status: 400 });
   }
 
-  // 🔎 Fetch video (source of truth)
-  const videoRes = await fetch(`${allowedOrigin}/api/videos?id=${videoId}`);
+  // -------------------------
+  // 1️⃣ Fetch SINGLE priced video
+  // -------------------------
+  const videoRes = await fetch(`${allowedOrigin}/api/videos/${videoId}`);
+
   if (!videoRes.ok) {
     return new Response("Video not found", { status: 404 });
   }
 
   const video = await videoRes.json();
-  if (!video || !video.pay || !video.fullKey) {
+
+  if (
+    !video ||
+    !video.pay ||
+    !video.fullKey ||
+    typeof video.basePrice !== "number" ||
+    typeof video.finalPrice !== "number"
+  ) {
     return new Response("Video not purchasable", { status: 404 });
   }
 
-  // 💰 Compute final price
-  const finalAmount = computeFinalPrice(video);
+  // -------------------------
+  // 2️⃣ Prepare pricing (NO recompute)
+  // -------------------------
+  const pricing = {
+    basePrice: video.basePrice,
+    finalPrice: video.finalPrice,
+    discountId: video.discount?.id ?? null,
+    discountLabel: video.discount?.name ?? null,
+  };
 
-  // 🧾 Create pending purchase FIRST
+  const finalAmount = Math.round(pricing.finalPrice * 100); // cents
+
+  if (finalAmount <= 0) {
+    return new Response("Invalid price", { status: 400 });
+  }
+
+  // -------------------------
+  // 3️⃣ Create Stripe session FIRST
+  // -------------------------
   const anonUserId = anonGuid();
 
-  const pendingPurchase = await Purchase.create({
+  const session = await createCheckoutSession({
+    finalAmount,
+    successUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/post-checkout?session_id={CHECKOUT_SESSION_ID}`,
+    cancelUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL}/cancel`,
+    metadata: {
+      videoId,
+      userId: anonUserId,
+      site: "TG",
+    },
+  });
+
+  if (!session?.id || !session?.url) {
+    return new Response("Stripe session failed", { status: 500 });
+  }
+
+  // -------------------------
+  // 4️⃣ Create pending purchase SECOND
+  // -------------------------
+  await Purchase.create({
     userId: anonUserId,
     videoId: video._id.toString(),
     videoTitle: video.title,
+
     creatorName: video.creatorName,
     creatorTelegramId: video.creatorTelegramId,
     creatorUrl: video.socialMediaUrl,
-    amount: finalAmount / 100,
+
+    basePrice: pricing.basePrice,
+    finalPrice: pricing.finalPrice,
+    discountId: pricing.discountId,
+    discountLabel: pricing.discountLabel,
+
+    amount: pricing.finalPrice,
     status: "pending",
+    stripeEventId: session.id,
     site: "TG",
   });
 
-  // 🔐 Stripe metadata: MINIMAL & SAFE
-  const metadata = {
-    purchaseId: pendingPurchase._id.toString(),
-  };
-
-  try {
-    const session = await createCheckoutSession({
-      finalAmount,
-      successUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/post-checkout?session_id={CHECKOUT_SESSION_ID}`,
-      cancelUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL}/cancel`,
-      metadata,
-    });
-
-    return Response.json({ checkoutUrl: session.url });
-  } catch (err) {
-    console.error("❌ tg-purchase checkout error:", err);
-
-    // Cleanup orphaned pending purchase
-    await Purchase.findByIdAndDelete(pendingPurchase._id);
-
-    return new Response("Checkout failed", { status: 500 });
-  }
+  // -------------------------
+  // 5️⃣ Return checkout URL
+  // -------------------------
+  return Response.json({ checkoutUrl: session.url });
 }
