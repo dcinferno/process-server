@@ -5,6 +5,7 @@ import crypto from "crypto";
 import { connectDB } from "../../../lib/db";
 import Purchase from "../../../lib/models/Purchase";
 import { createCheckoutSession } from "../../../lib/createCheckoutSession";
+import { updateCheckoutSessionMetadata } from "../../../lib/updateCheckoutSessionMetadata";
 
 const allowedOrigin = process.env.NEXT_PUBLIC_FRONTEND_URL;
 
@@ -132,6 +133,9 @@ export async function POST(req) {
   // Always (re)attach the Stripe session ID
   purchase.stripeEventId = session.id;
   await purchase.save();
+  await updateCheckoutSessionMetadata(session.id, {
+    purchaseId: purchase._id.toString(),
+  });
 
   // -------------------------
   // 5️⃣ Return checkout URL
