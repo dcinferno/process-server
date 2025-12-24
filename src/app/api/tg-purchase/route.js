@@ -91,7 +91,7 @@ export async function POST(req) {
   }
 
   // -------------------------
-  //  Find or create pending purchase (OPTION B)
+  // 4️⃣ Create / reuse pending purchase FIRST
   // -------------------------
   let purchase = await Purchase.findOne({
     userId,
@@ -119,23 +119,38 @@ export async function POST(req) {
       site,
     });
   } else {
-    // BACKFILL for legacy pending purchases
+    // Backfill safety
     purchase.basePrice = basePrice;
     purchase.finalPrice = finalPrice;
     purchase.amount = finalPrice;
-
     purchase.discountId = pricing.discountId;
     purchase.discountLabel = pricing.discountLabel;
-
     purchase.site = site;
+    await purchase.save();
   }
 
-  // Always (re)attach the Stripe session ID
+  // -------------------------
+  // 5️⃣ Create Stripe session WITH purchaseId
+  // -------------------------
+  const session = await createCheckoutSession({
+    finalAmount,
+    successUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/post-checkout?session_id={CHECKOUT_SESSION_ID}`,
+    cancelUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL}/cancel`,
+    metadata: {
+      purchaseId: purchase._id.toString(), // 🔑 GUARANTEED
+      userId,
+      videoId,
+      site,
+    },
+  });
+
+  if (!session?.id || !session?.url) {
+    throw new Error("Stripe session failed");
+  }
+
+  // Attach Stripe session ID to purchase
   purchase.stripeEventId = session.id;
   await purchase.save();
-  await updateCheckoutSessionMetadata(session.id, {
-    purchaseId: purchase._id.toString(),
-  });
 
   // -------------------------
   // 5️⃣ Return checkout URL
