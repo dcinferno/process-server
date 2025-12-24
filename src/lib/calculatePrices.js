@@ -1,22 +1,22 @@
-export function computeFinalPrice(video) {
-  let price = video.price;
+import Discount from "@/lib/models/Discount";
+
+export async function computeFinalPrice(video) {
+  let price = Number(video.price);
+  if (!price || price <= 0) return 0;
 
   const now = new Date();
-  const day = now.getDay(); // 0=Sun, 3=Wed, 4=Thu
 
-  // 🍷 Thirsty Thursday — 25% off pudding
-  if (day === 4 && video.creatorName?.toLowerCase().includes("pudding")) {
-    price = price * 0.75;
+  const discount = await Discount.findOne({
+    active: true,
+    creators: video.creatorName,
+    startsAt: { $lte: now },
+    endsAt: { $gte: now },
+  }).lean();
+
+  if (discount?.percentOff) {
+    price = price * (1 - discount.percentOff / 100);
   }
 
-  // 🚗 Wagon Wednesday — fixed price
-  if (day === 3 && video.tags?.includes("wagon")) {
-    price = 13.34;
-  }
-
-  // Final safety
   price = Math.max(0, Number(price));
-
-  // Stripe expects cents (rounded)
-  return Math.round(price * 100);
+  return Math.round(price * 100); // cents
 }
