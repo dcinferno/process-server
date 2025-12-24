@@ -33,127 +33,105 @@ export async function OPTIONS(req) {
    POST
 ------------------------------------------- */
 export async function POST(req) {
+  const step = (label) => console.log(`✅ STEP: ${label}`);
+
+  let body;
+  step("start");
+
+  // 1️⃣ Parse body
   try {
-    const body = await req.json();
-    const { userId, videoId, site } = body;
+    body = await req.json();
+    step("parsed body");
+  } catch (e) {
+    console.error("❌ BODY PARSE FAILED", e);
+    return new Response("Invalid JSON", { status: 400 });
+  }
 
-    // -------------------------
-    // 0️⃣ Validate input
-    // -------------------------
-    if (!userId || !videoId || !site) {
-      return new Response("Missing fields", {
-        status: 400,
-        headers: corsHeaders(req),
-      });
-    }
+  const { userId, videoId, site } = body;
 
+  if (!userId || !videoId || !site) {
+    console.error("❌ MISSING FIELDS", body);
+    return new Response("Missing fields", { status: 400 });
+  }
+
+  // 2️⃣ DB
+  try {
     await connectDB();
+    step("db connected");
+  } catch (e) {
+    console.error("❌ DB CONNECT FAILED", e);
+    return new Response("DB error", { status: 500 });
+  }
 
-    // -------------------------
-    // 1️⃣ Prevent duplicate paid purchases
-    // -------------------------
-    const existing = await Purchase.findOne({
-      userId,
-      videoId,
-      status: "paid",
-    });
+  // 3️⃣ Fetch video
+  let video;
+  try {
+    step("fetching video");
+    const res = await fetch(`${allowedOrigin}/api/videos/${videoId}`);
+    console.log("video fetch status", res.status);
 
-    if (existing) {
-      return new Response(
-        JSON.stringify({ error: "Already purchased", purchased: true }),
-        {
-          status: 409,
-          headers: corsHeaders(req),
-        }
-      );
-    }
+    video = await res.json();
+    console.log("video payload", video);
 
-    // -------------------------
-    // 2️⃣ Fetch SINGLE video (already priced)
-    // -------------------------
-    const videoRes = await fetch(`${allowedOrigin}/api/videos/${videoId}`);
+    if (!video?.finalPrice) throw new Error("Invalid video payload");
+    step("video validated");
+  } catch (e) {
+    console.error("❌ VIDEO FETCH FAILED", e);
+    return new Response("Video error", { status: 500 });
+  }
 
-    if (!videoRes.ok) {
-      throw new Error("Video not found");
-    }
+  // 4️⃣ Stripe session
+  let session;
+  try {
+    step("creating stripe session");
 
-    const video = await videoRes.json();
-
-    if (
-      typeof video.basePrice !== "number" ||
-      typeof video.finalPrice !== "number"
-    ) {
-      throw new Error("Invalid video pricing");
-    }
-
-    // -------------------------
-    // 3️⃣ Prepare pricing (NO recompute)
-    // -------------------------
-    const pricing = {
-      basePrice: video.basePrice,
-      finalPrice: video.finalPrice,
-      discountId: video.discount?.id ?? null,
-      discountLabel: video.discount?.name ?? null,
-    };
-
-    const finalAmount = Math.round(pricing.finalPrice * 100); // cents
-
-    if (finalAmount <= 0) {
-      throw new Error("Invalid Stripe amount");
-    }
-
-    // -------------------------
-    // 4️⃣ Create Stripe session FIRST
-    // -------------------------
-    const session = await createCheckoutSession({
-      finalAmount,
+    session = await createCheckoutSession({
+      finalAmount: Math.round(video.finalPrice * 100),
       successUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/post-checkout?session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL}/cancel`,
       metadata: {
-        userId,
-        videoId,
+        userId: String(userId),
+        videoId: String(videoId),
+        site: String(site),
       },
     });
 
-    if (!session?.id || !session?.url) {
-      throw new Error("Stripe session failed");
-    }
+    console.log("stripe session", session?.id);
+    step("stripe created");
+  } catch (e) {
+    console.error("❌ STRIPE FAILED", {
+      message: e.message,
+      stack: e.stack,
+    });
+    return new Response("Stripe error", { status: 500 });
+  }
 
-    // -------------------------
-    // 5️⃣ Create pending purchase SECOND
-    // -------------------------
+  // 5️⃣ Create purchase
+  try {
+    step("creating purchase");
+
     await Purchase.create({
       userId,
       videoId,
       videoTitle: video.title,
-
       creatorName: video.creatorName,
       creatorTelegramId: video.creatorTelegramId,
       creatorUrl: video.socialMediaUrl,
-
-      basePrice: pricing.basePrice,
-      finalPrice: pricing.finalPrice,
-      discountId: pricing.discountId,
-      discountLabel: pricing.discountLabel,
-
-      amount: pricing.finalPrice,
-      status: "pending",
+      basePrice: video.basePrice,
+      finalPrice: video.finalPrice,
+      amount: video.finalPrice,
       stripeEventId: session.id,
+      status: "pending",
+      site,
     });
 
-    // -------------------------
-    // 6️⃣ Return Stripe URL
-    // -------------------------
-    return new Response(JSON.stringify({ url: session.url }), {
-      status: 200,
-      headers: corsHeaders(req),
-    });
-  } catch (err) {
-    console.error("❌ Checkout error:", err);
-
-    return new Response("Checkout Error", {
-      status: 500,
-      headers: corsHeaders(req),
-    });
+    step("purchase created");
+  } catch (e) {
+    console.error("❌ PURCHASE CREATE FAILED", e);
+    return new Response("Purchase error", { status: 500 });
   }
+
+  step("done");
+
+  return Response.json({ url: session.url });
 }
