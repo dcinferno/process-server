@@ -1,7 +1,10 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { connectDB } from "../../../lib/db";
 import Purchase from "../../../lib/models/Purchase";
 import { createCheckoutSession } from "../../../lib/createCheckoutSession";
-import { updateCheckoutSessionMetadata } from "../../../lib/updateCheckoutSessionMetadata";
 
 const allowedOrigin = process.env.NEXT_PUBLIC_FRONTEND_URL;
 
