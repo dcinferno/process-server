@@ -23,51 +23,54 @@ export async function GET() {
     endsAt: { $gte: now },
   }).lean();
 
-  /*
-    Goal:
-    {
-      global: { percentOff },
-      creators: {
-        "don dada": { percentOff }
-      }
-    }
-  */
-
   const response = {
     global: null,
     creators: {},
   };
 
   for (const d of discounts) {
-    // Global discount (no creators array or empty)
+    const discountPayload = {
+      name: d.name,
+      type: d.type,
+      percentOff: d.percentOff,
+      tags:
+        Array.isArray(d.tags) && d.tags.length ? d.tags.map(normalize) : null,
+    };
+
+    // -----------------------------------
+    // 🌍 Global discount
+    // -----------------------------------
     if (!Array.isArray(d.creators) || d.creators.length === 0) {
-      // pick the strongest global discount
+      // Keep strongest global discount
       if (!response.global || d.percentOff > response.global.percentOff) {
-        response.global = {
-          name: d.name,
-          percentOff: d.percentOff,
-        };
+        response.global = discountPayload;
       }
       continue;
     }
 
-    // Creator-specific discounts
+    // -----------------------------------
+    // 👤 Creator-specific discounts
+    // -----------------------------------
     for (const creator of d.creators) {
       const key = normalize(creator);
       if (!key) continue;
 
-      const existing = response.creators[key];
-
-      // keep the strongest discount per creator
-      if (!existing || d.percentOff > existing.percentOff) {
-        response.creators[key] = {
-          name: d.name,
-          type: d.type,
-          percentOff: d.percentOff,
-        };
+      if (!response.creators[key]) {
+        response.creators[key] = [];
       }
+
+      response.creators[key].push(discountPayload);
     }
   }
 
-  return Response.json(response);
+  return new Response(JSON.stringify(response), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json",
+      // 🚫 absolutely no caching
+      "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+      Pragma: "no-cache",
+      Expires: "0",
+    },
+  });
 }
