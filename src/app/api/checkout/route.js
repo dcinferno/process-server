@@ -72,7 +72,9 @@ export async function POST(req) {
     // -------------------------
     // 2️⃣ Fetch SINGLE video (already priced)
     // -------------------------
-    const videoRes = await fetch(`${allowedOrigin}/api/videos/${videoId}`);
+    const videoRes = await fetch(`${allowedOrigin}/api/videos/${videoId}`, {
+      cache: "no-store",
+    });
 
     if (!videoRes.ok) {
       throw new Error("Video not found");
