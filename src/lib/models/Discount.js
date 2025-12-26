@@ -28,7 +28,10 @@ const DiscountSchema = new Schema(
       default: [],
       index: true,
     },
-
+    tags: {
+      type: [String],
+      required: false, // e.g. ["christmas"]
+    },
     startsAt: {
       type: Date,
       required: true,
