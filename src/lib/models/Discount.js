@@ -13,7 +13,6 @@ const DiscountSchema = new Schema(
     type: {
       type: String,
       required: true,
-      enum: ["fixed", "percent"],
     },
     percentOff: {
       type: Number,
