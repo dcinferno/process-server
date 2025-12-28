@@ -1,64 +1,74 @@
-// lib/models/Discount.js
 import mongoose from "mongoose";
 
-const { Schema } = mongoose;
-
-const DiscountSchema = new Schema(
+const DiscountSchema = new mongoose.Schema(
   {
     name: {
       type: String,
       required: true,
       trim: true,
     },
+
     type: {
       type: String,
+      enum: ["percentage", "fixed", "amount"],
       required: true,
-    },
-    percentOff: {
-      type: Number,
-      required: true,
-      min: 1,
-      max: 100,
     },
 
-    // Can be creatorName OR creatorId (string-based, as you intended)
+    // % off
+    percentOff: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: null,
+    },
+
+    // 💲 flat final price
+    fixedPrice: {
+      type: Number,
+      min: 0,
+      default: null,
+    },
+
+    // 💲 dollars off
+    amountOff: {
+      type: Number,
+      min: 0,
+      default: null,
+    },
+
+    // creators this applies to (empty = global)
     creators: {
       type: [String],
       default: [],
-      index: true,
     },
+
+    // optional tag scoping
     tags: {
       type: [String],
-      required: false, // e.g. ["christmas"]
+      default: null,
     },
+
+    // 🔴 REQUIRED BY YOUR API
+    active: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
     startsAt: {
       type: Date,
       required: true,
+      index: true,
     },
 
     endsAt: {
       type: Date,
       required: true,
-    },
-
-    active: {
-      type: Boolean,
-      default: true,
       index: true,
     },
   },
-  {
-    timestamps: true, // createdAt / updatedAt
-  }
+  { timestamps: true }
 );
-
-// Optional: prevent overlapping invalid ranges
-DiscountSchema.pre("save", function (next) {
-  if (this.endsAt <= this.startsAt) {
-    return next(new Error("endsAt must be after startsAt"));
-  }
-  next();
-});
 
 export default mongoose.models.Discount ||
   mongoose.model("Discount", DiscountSchema);
