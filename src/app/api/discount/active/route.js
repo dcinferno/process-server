@@ -16,7 +16,6 @@ export async function GET() {
 
   const now = new Date();
 
-  // 1️⃣ Pull active + in-window discounts
   const discounts = await Discount.find({
     active: true,
     startsAt: { $lte: now },
@@ -24,15 +23,17 @@ export async function GET() {
   }).lean();
 
   const response = {
-    global: null,
+    global: [],
     creators: {},
   };
 
   for (const d of discounts) {
-    const discountPayload = {
+    const payload = {
       name: d.name,
-      type: d.type,
-      percentOff: d.percentOff,
+      type: d.type, // percentage | fixed | amount
+      percentOff: d.percentOff ?? null,
+      fixedPrice: d.fixedPrice ?? null,
+      amountOff: d.amountOff ?? null,
       tags:
         Array.isArray(d.tags) && d.tags.length ? d.tags.map(normalize) : null,
     };
@@ -41,15 +42,12 @@ export async function GET() {
     // 🌍 Global discount
     // -----------------------------------
     if (!Array.isArray(d.creators) || d.creators.length === 0) {
-      // Keep strongest global discount
-      if (!response.global || d.percentOff > response.global.percentOff) {
-        response.global = discountPayload;
-      }
+      response.global.push(payload);
       continue;
     }
 
     // -----------------------------------
-    // 👤 Creator-specific discounts
+    // 👤 Creator discounts
     // -----------------------------------
     for (const creator of d.creators) {
       const key = normalize(creator);
@@ -59,7 +57,7 @@ export async function GET() {
         response.creators[key] = [];
       }
 
-      response.creators[key].push(discountPayload);
+      response.creators[key].push(payload);
     }
   }
 
@@ -67,7 +65,6 @@ export async function GET() {
     status: 200,
     headers: {
       "Content-Type": "application/json",
-      // 🚫 absolutely no caching
       "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
       Pragma: "no-cache",
       Expires: "0",
