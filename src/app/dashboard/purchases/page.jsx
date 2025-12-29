@@ -2,6 +2,17 @@
 
 import { useEffect, useState } from "react";
 
+function Stat({ label, value }) {
+  return (
+    <div className="bg-white border rounded-lg p-4 shadow-sm">
+      <div className="text-xs uppercase tracking-wide text-gray-500">
+        {label}
+      </div>
+      <div className="text-2xl font-bold mt-1">{value}</div>
+    </div>
+  );
+}
+
 export default function PurchasesDashboard() {
   const [loading, setLoading] = useState(true);
   const [purchases, setPurchases] = useState([]);
@@ -9,9 +20,18 @@ export default function PurchasesDashboard() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [selected, setSelected] = useState(null);
+  const [creators, setCreators] = useState([]);
 
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const totalRevenue = purchases.reduce(
+    (sum, p) => sum + (Number(p.amount) || 0),
+    0
+  );
+
+  const totalPayout = totalRevenue * 0.9;
+
+  const avgOrder = purchases.length > 0 ? totalRevenue / purchases.length : 0;
 
   const fetchPurchases = async () => {
     setLoading(true);
@@ -42,7 +62,13 @@ export default function PurchasesDashboard() {
 
     setLoading(false);
   };
+  useEffect(() => {
+    const unique = Array.from(
+      new Set(purchases.map((p) => p.creatorName).filter(Boolean))
+    ).sort();
 
+    setCreators(unique);
+  }, [purchases]);
   // Refresh data when filters OR page changes
   useEffect(() => {
     fetchPurchases();
@@ -56,15 +82,29 @@ export default function PurchasesDashboard() {
   return (
     <div className="p-4 max-w-4xl mx-auto text-black bg-white min-h-screen">
       <h1 className="text-3xl font-bold mb-6">Sales Dashboard</h1>
+      {/* SUMMARY */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <Stat label="Revenue" value={`$${totalRevenue.toFixed(2)}`} />
+        <Stat label="Payout" value={`$${totalPayout.toFixed(2)}`} />
+        <Stat label="Sales" value={purchases.length} />
+        <Stat label="Avg Order" value={`$${avgOrder.toFixed(2)}`} />
+      </div>
 
       {/* FILTERS */}
       <div className="mb-6 flex gap-3 flex-wrap items-center">
-        <input
-          placeholder="Filter by creator name..."
+        <select
           value={creatorFilter}
           onChange={(e) => setCreatorFilter(e.target.value)}
           className="border rounded px-3 py-2 w-full sm:w-64 bg-white text-black"
-        />
+        >
+          <option value="">All creators</option>
+
+          {creators.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
 
         <input
           type="date"
