@@ -20,6 +20,7 @@ export default function PurchasesDashboard() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [selected, setSelected] = useState(null);
+  const [creators, setCreators] = useState([]);
 
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -61,7 +62,13 @@ export default function PurchasesDashboard() {
 
     setLoading(false);
   };
+  useEffect(() => {
+    const unique = Array.from(
+      new Set(purchases.map((p) => p.creatorName).filter(Boolean))
+    ).sort();
 
+    setCreators(unique);
+  }, [purchases]);
   // Refresh data when filters OR page changes
   useEffect(() => {
     fetchPurchases();
@@ -85,12 +92,19 @@ export default function PurchasesDashboard() {
 
       {/* FILTERS */}
       <div className="mb-6 flex gap-3 flex-wrap items-center">
-        <input
-          placeholder="Filter by creator name..."
+        <select
           value={creatorFilter}
           onChange={(e) => setCreatorFilter(e.target.value)}
           className="border rounded px-3 py-2 w-full sm:w-64 bg-white text-black"
-        />
+        >
+          <option value="">All creators</option>
+
+          {creators.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
 
         <input
           type="date"
