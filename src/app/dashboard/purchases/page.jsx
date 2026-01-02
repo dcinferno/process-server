@@ -27,9 +27,10 @@ export default function PurchasesDashboard() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
+  const totalRevenue = totals.revenue;
   const totalPayout = totalRevenue * 0.9;
-
-  const avgOrder = purchases.length > 0 ? totalRevenue / purchases.length : 0;
+  const totalSales = totals.count;
+  const avgOrder = totalSales > 0 ? totalRevenue / totalSales : 0;
 
   const fetchPurchases = async () => {
     setLoading(true);
@@ -84,7 +85,7 @@ export default function PurchasesDashboard() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         <Stat label="Revenue" value={`$${totalRevenue.toFixed(2)}`} />
         <Stat label="Payout" value={`$${totalPayout.toFixed(2)}`} />
-        <Stat label="Sales" value={totals.count} />
+        <Stat label="Sales" value={totalSales} />
         <Stat label="Avg Order" value={`$${avgOrder.toFixed(2)}`} />
       </div>
 
