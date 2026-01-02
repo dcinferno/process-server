@@ -26,10 +26,6 @@ export default function PurchasesDashboard() {
 
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const totalRevenue = purchases.reduce(
-    (sum, p) => sum + (Number(p.amount) || 0),
-    0
-  );
 
   const totalPayout = totalRevenue * 0.9;
 
@@ -88,7 +84,7 @@ export default function PurchasesDashboard() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         <Stat label="Revenue" value={`$${totalRevenue.toFixed(2)}`} />
         <Stat label="Payout" value={`$${totalPayout.toFixed(2)}`} />
-        <Stat label="Sales" value={purchases.length} />
+        <Stat label="Sales" value={totals.count} />
         <Stat label="Avg Order" value={`$${avgOrder.toFixed(2)}`} />
       </div>
 
