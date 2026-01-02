@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import Purchase from "../../../../lib/models/Purchase";
 import { connectDB } from "../../../../lib/db";
-
+import { postTweet, formatSaleTweet } from "@/lib/twitter";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -179,6 +179,18 @@ export async function POST(req) {
       videoTitle: updated.videoTitle,
       amount,
     });
+
+    try {
+      await postTweet(
+        formatSaleTweet({
+          creatorName: updated.creatorName,
+          title: updated.videoTitle,
+          amount,
+        })
+      );
+    } catch {
+      // intentionally empty
+    }
 
     return NextResponse.json({ received: true });
   } catch (err) {
