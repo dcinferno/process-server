@@ -5,6 +5,7 @@ import { connectDB } from "../../../lib/db";
 export async function GET(req) {
   try {
     await connectDB();
+
     const { searchParams } = new URL(req.url);
 
     const creator = searchParams.get("creator");
@@ -16,52 +17,67 @@ export async function GET(req) {
     const limit = parseInt(searchParams.get("limit") || "20", 10);
     const skip = (page - 1) * limit;
 
+    /* ----------------------------------
+       BASE FILTER
+    ---------------------------------- */
     const filter = { status: "paid" };
 
-    // Text filters
     if (creator) filter.creatorName = new RegExp(creator, "i");
     if (email) filter.email = new RegExp(email, "i");
 
-    // Date filter (safe fallback order)
     if (from || to) {
+      const range = {
+        ...(from && { $gte: new Date(from) }),
+        ...(to && { $lte: new Date(to) }),
+      };
+
       filter.$or = [
-        {
-          purchasedAt: {
-            ...(from && { $gte: new Date(from) }),
-            ...(to && { $lte: new Date(to) }),
-          },
-        },
-        {
-          paidAt: {
-            ...(from && { $gte: new Date(from) }),
-            ...(to && { $lte: new Date(to) }),
-          },
-        },
-        {
-          createdAt: {
-            ...(from && { $gte: new Date(from) }),
-            ...(to && { $lte: new Date(to) }),
-          },
-        },
+        { purchasedAt: range },
+        { paidAt: range },
+        { createdAt: range },
       ];
     }
 
-    const [purchases, total] = await Promise.all([
+    /* ----------------------------------
+       QUERIES (PARALLEL)
+    ---------------------------------- */
+    const [purchases, total, totalsAgg] = await Promise.all([
+      // Paginated rows
       Purchase.find(filter)
         .sort({ purchasedAt: -1, paidAt: -1, createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
 
+      // Total count (for pagination)
       Purchase.countDocuments(filter),
+
+      // Aggregates (NO pagination)
+      Purchase.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: null,
+            revenue: { $sum: "$amount" },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
     ]);
+
+    const totalsRow = totalsAgg[0] || { revenue: 0, count: 0 };
 
     return NextResponse.json({
       purchases,
-      total,
       page,
       limit,
       totalPages: Math.max(1, Math.ceil(total / limit)),
+
+      // 👇 NEW: all-record stats
+      totals: {
+        revenue: totalsRow.revenue || 0,
+        count: totalsRow.count || 0,
+      },
     });
   } catch (err) {
     console.error("❌ Error fetching purchases:", err);
