@@ -14,6 +14,8 @@ function Stat({ label, value }) {
 }
 
 export default function PurchasesDashboard() {
+  const [totals, setTotals] = useState({ revenue: 0, count: 0 });
+
   const [loading, setLoading] = useState(true);
   const [purchases, setPurchases] = useState([]);
   const [creatorFilter, setCreatorFilter] = useState("");
@@ -59,7 +61,7 @@ export default function PurchasesDashboard() {
 
     setPurchases(data.purchases);
     setTotalPages(data.totalPages || 1);
-
+    setTotals(data.totals || { revenue: 0, count: 0 });
     setLoading(false);
   };
   useEffect(() => {
