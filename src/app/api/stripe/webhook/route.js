@@ -185,7 +185,7 @@ export async function POST(req) {
         formatSaleTweet({
           creatorName: updated.creatorName,
           title: updated.videoTitle,
-          url: `${process.env.NEXT_PUBLIC_BASE_URL}/v/${updated.videoId}?utm_source=twitter&utm_medium=sale&utm_campaign=auto`,
+          url: `${NEXT_PUBLIC_FRONTEND_URL}/?video=${updated.videoId}`,
         })
       );
     } catch {
