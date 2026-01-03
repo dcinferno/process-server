@@ -23,8 +23,8 @@ if (ENABLED) {
       accessToken: process.env.TWITTER_ACCESS_TOKEN,
       accessSecret: process.env.TWITTER_ACCESS_SECRET,
     });
-  } catch (err) {
-    console.warn("🐦 Twitter client init failed:", err.message);
+  } catch {
+    client = null;
   }
 }
 
@@ -44,15 +44,9 @@ async function canPostTweet() {
       { upsert: true, new: true }
     );
 
-    if (doc.count > MONTHLY_LIMIT) {
-      console.warn("🐦 Twitter monthly limit reached");
-      return false;
-    }
-
-    return true;
-  } catch (err) {
+    return doc.count <= MONTHLY_LIMIT;
+  } catch {
     // Fail-open so Twitter never blocks Stripe
-    console.warn("🐦 Twitter counter error, allowing post:", err.message);
     return true;
   }
 }
@@ -61,60 +55,25 @@ async function canPostTweet() {
    PUBLIC API
 ---------------------------------- */
 export async function postTweet(text) {
-  console.log("🐦 postTweet called", {
-    enabled: ENABLED,
-    hasClient: !!client,
-    textLength: text?.length,
-  });
-
-  if (!ENABLED) {
-    console.log("🐦 Twitter disabled via env");
-    return;
-  }
-
-  if (!client) {
-    console.log("🐦 Twitter client missing");
-    return;
-  }
-
-  if (!text || typeof text !== "string") {
-    console.log("🐦 Invalid tweet text");
-    return;
-  }
+  if (!ENABLED) return;
+  if (!client) return;
+  if (!text || typeof text !== "string") return;
 
   const safeText = text.slice(0, 280);
 
   try {
     const allowed = await canPostTweet();
-    console.log("🐦 canPostTweet =", allowed);
-
     if (!allowed) return;
 
-    const res = await client.v2.tweet(safeText);
-
-    console.log("🐦 Twitter API response:", res);
-  } catch (err) {
-    console.error("🐦 Twitter ERROR full dump ↓↓↓");
-    console.error(err);
-
-    if (err?.data) {
-      console.error("🐦 err.data:", JSON.stringify(err.data, null, 2));
-    }
-
-    if (err?.code) {
-      console.error("🐦 err.code:", err.code);
-    }
-
-    if (err?.response) {
-      console.error("🐦 err.response:", err.response);
-    }
+    await client.v2.tweet(safeText);
+  } catch {
+    // Intentionally silent
   }
 }
 
 /* ---------------------------------
-   OPTIONAL FORMATTERS
+   FORMATTERS
 ---------------------------------- */
-
 export function formatSaleTweet({ creatorName, title, url }) {
   const safeTitle = cleanText(title);
   return `💰 New sale\n${creatorName}\n"${safeTitle}"\n\n${url}`;
