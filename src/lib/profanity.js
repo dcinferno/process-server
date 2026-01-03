@@ -6,7 +6,7 @@ const leoProfanity = leoProfanityPkg.default ?? leoProfanityPkg;
 // Load dictionary once
 leoProfanity.add(leoProfanity.getDictionary("en"));
 
-// Optional extra words
+// Optional custom words
 const extra =
   process.env.PROFANITY_EXTRA?.split(",")
     .map((w) => w.trim())
@@ -14,27 +14,38 @@ const extra =
 if (extra.length) leoProfanity.add(extra);
 
 /* ---------------------------------
-   SAFE CLEANER
+   CLEAN TEXT (FIRST LETTER ONLY)
 ---------------------------------- */
 export function cleanText(text = "") {
   try {
-    return leoProfanity.clean(text, {
-      replacement: (match) => {
-        // 🔑 Normalize match to string
-        const word =
-          typeof match === "string"
-            ? match
-            : match?.original || match?.value || "";
+    if (!text) return text;
 
-        if (!word) return "";
+    const badWords = leoProfanity.list(text);
+    if (!badWords.length) return text;
 
-        // Keep first letter, mask rest
-        if (word.length <= 1) return "*";
-        return word[0] + "*".repeat(word.length - 1);
-      },
-    });
+    let result = text;
+
+    for (const word of badWords) {
+      if (!word || typeof word !== "string") continue;
+
+      const masked =
+        word.length <= 1 ? "*" : word[0] + "*".repeat(word.length - 1);
+
+      // Replace ALL occurrences, case-insensitive
+      const re = new RegExp(`\\b${escapeRegExp(word)}\\b`, "gi");
+      result = result.replace(re, masked);
+    }
+
+    return result;
   } catch {
-    // Fail open — never break UI / Stripe / Twitter
+    // Fail-open
     return text;
   }
+}
+
+/* ---------------------------------
+   UTILS
+---------------------------------- */
+function escapeRegExp(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
