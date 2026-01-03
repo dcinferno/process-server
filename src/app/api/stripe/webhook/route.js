@@ -185,7 +185,7 @@ export async function POST(req) {
         formatSaleTweet({
           creatorName: updated.creatorName,
           title: updated.videoTitle,
-          url: `${NEXT_PUBLIC_FRONTEND_URL}/?video=${updated.videoId}`,
+          url: `${process.env.NEXT_PUBLIC_FRONTEND_URL}/?video=${updated.videoId}`,
         })
       );
     } catch {
