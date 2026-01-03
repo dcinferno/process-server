@@ -2,7 +2,8 @@
 import { TwitterApi } from "twitter-api-v2";
 import { connectDB } from "./db";
 import Counter from "./models/Counter";
-import leoProfanity from "leo-profanity";
+import { cleanText } from "./profanity";
+
 /* ---------------------------------
    CONFIG
 ---------------------------------- */
@@ -82,10 +83,8 @@ export async function postTweet(text) {
 /* ---------------------------------
    OPTIONAL FORMATTERS
 ---------------------------------- */
-leoProfanity.add(leoProfanity.getDictionary("en"));
-const extra = process.env.PROFANITY_EXTRA?.split(",") || [];
-leoProfanity.add(extra);
+
 export function formatSaleTweet({ creatorName, title, url }) {
-  const safeTitle = leoProfanity.clean(title);
+  const safeTitle = cleanText(title);
   return `💰 New sale\n${creatorName}\n"${safeTitle}"\n\n${url}`;
 }
