@@ -61,22 +61,53 @@ async function canPostTweet() {
    PUBLIC API
 ---------------------------------- */
 export async function postTweet(text) {
-  if (!ENABLED) return;
-  if (!client) return;
-  if (!text || typeof text !== "string") return;
+  console.log("🐦 postTweet called", {
+    enabled: ENABLED,
+    hasClient: !!client,
+    textLength: text?.length,
+  });
+
+  if (!ENABLED) {
+    console.log("🐦 Twitter disabled via env");
+    return;
+  }
+
+  if (!client) {
+    console.log("🐦 Twitter client missing");
+    return;
+  }
+
+  if (!text || typeof text !== "string") {
+    console.log("🐦 Invalid tweet text");
+    return;
+  }
 
   const safeText = text.slice(0, 280);
 
   try {
     const allowed = await canPostTweet();
+    console.log("🐦 canPostTweet =", allowed);
+
     if (!allowed) return;
 
-    await client.v2.tweet(safeText);
+    const res = await client.v2.tweet(safeText);
 
-    console.log("🐦 Tweet posted:", safeText);
+    console.log("🐦 Twitter API response:", res);
   } catch (err) {
-    // NEVER throw — Stripe webhooks must not fail
-    console.warn("🐦 Twitter post failed:", err?.data || err?.message || err);
+    console.error("🐦 Twitter ERROR full dump ↓↓↓");
+    console.error(err);
+
+    if (err?.data) {
+      console.error("🐦 err.data:", JSON.stringify(err.data, null, 2));
+    }
+
+    if (err?.code) {
+      console.error("🐦 err.code:", err.code);
+    }
+
+    if (err?.response) {
+      console.error("🐦 err.response:", err.response);
+    }
   }
 }
 
