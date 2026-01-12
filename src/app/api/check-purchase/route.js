@@ -24,7 +24,7 @@ export async function POST(req) {
     status: "paid",
   };
 
-  // optional narrowing
+  // optional narrowing (keep this!)
   if (videoId) {
     query.videoId = videoId;
   }
@@ -35,8 +35,35 @@ export async function POST(req) {
     return Response.json({ success: false }, { status: 403 });
   }
 
+  // ----------------------------------
+  // ✅ NEW: normalize unlocked videos
+  // ----------------------------------
+  const videoIds =
+    Array.isArray(purchase.unlockedVideoIds) &&
+    purchase.unlockedVideoIds.length > 0
+      ? purchase.unlockedVideoIds
+      : purchase.videoId
+      ? [purchase.videoId]
+      : [];
+
+  if (videoIds.length === 0) {
+    return Response.json({ success: false }, { status: 400 });
+  }
+
+  // ----------------------------------
+  // ✅ NON-BREAKING RESPONSE
+  // ----------------------------------
+  if (videoIds.length === 1) {
+    // EXACTLY what old clients expect
+    return Response.json({
+      success: true,
+      videoId: videoIds[0],
+    });
+  }
+
+  // New bundle-aware response
   return Response.json({
     success: true,
-    videoId: purchase.videoId,
+    videoIds,
   });
 }
