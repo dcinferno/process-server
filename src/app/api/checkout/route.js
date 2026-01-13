@@ -39,12 +39,12 @@ export async function OPTIONS(req) {
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { userId, videoId, site } = body;
+    const { userId, videoId, bundleId, site } = body;
 
     // -------------------------
     // 0️⃣ Validate input
     // -------------------------
-    if (!userId || !videoId || !site) {
+    if (!userId || (!videoId && !bundleId) || !site) {
       return new Response("Missing fields", {
         status: 400,
         headers: corsHeaders(req),
@@ -52,6 +52,120 @@ export async function POST(req) {
     }
 
     await connectDB();
+    // ==================================================
+    // 🧺 BUNDLE CHECKOUT FLOW (NEW)
+    // ==================================================
+    if (bundleId) {
+      // ----------------------------------
+      // A️⃣ Fetch bundle from APP server
+      // ----------------------------------
+      const bundleRes = await fetch(
+        `${allowedOrigin}/api/bundle?id=${bundleId}`,
+        {
+          headers: {
+            "x-internal-token": process.env.INTERNAL_API_TOKEN,
+          },
+          cache: "no-store",
+        }
+      );
+
+      if (!bundleRes.ok) {
+        return new Response("Invalid bundle", {
+          status: 400,
+          headers: corsHeaders(req),
+        });
+      }
+
+      const [bundle] = await bundleRes.json();
+
+      if (
+        !bundle ||
+        !Array.isArray(bundle.videoIds) ||
+        bundle.videoIds.length === 0 ||
+        typeof bundle.price !== "number"
+      ) {
+        return new Response("Invalid bundle data", {
+          status: 400,
+          headers: corsHeaders(req),
+        });
+      }
+
+      // ----------------------------------
+      // B️⃣ Prevent duplicate paid bundle
+      // ----------------------------------
+      const existing = await Purchase.findOne({
+        userId,
+        bundleId,
+        status: "paid",
+      });
+
+      if (existing) {
+        return new Response(
+          JSON.stringify({
+            error: "Bundle already purchased",
+            purchased: true,
+          }),
+          {
+            status: 409,
+            headers: corsHeaders(req),
+          }
+        );
+      }
+
+      // ----------------------------------
+      // C️⃣ Create / reuse pending purchase
+      // ----------------------------------
+      let purchase = await Purchase.findOne({
+        userId,
+        bundleId,
+        status: "pending",
+      });
+
+      if (!purchase) {
+        purchase = await Purchase.create({
+          userId,
+          bundleId,
+          type: "bundle",
+
+          unlockedVideoIds: bundle.videoIds,
+          amount: bundle.price,
+          basePrice: bundle.price,
+          finalPrice: bundle.price,
+
+          creatorId: bundle.creatorId,
+          status: "pending",
+          site,
+        });
+      }
+
+      const finalAmount = Math.round(bundle.price * 100);
+
+      // ----------------------------------
+      // D️⃣ Stripe session (purchaseId only)
+      // ----------------------------------
+      const session = await createCheckoutSession({
+        finalAmount,
+        successUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/post-checkout?session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL}/cancel`,
+        metadata: {
+          purchaseId: purchase._id.toString(),
+          userId,
+          site,
+        },
+      });
+
+      if (!session?.id || !session?.url) {
+        throw new Error("Stripe session failed");
+      }
+
+      purchase.stripeEventId = session.id;
+      await purchase.save();
+
+      return new Response(JSON.stringify({ url: session.url }), {
+        status: 200,
+        headers: corsHeaders(req),
+      });
+    }
 
     // -------------------------
     // 1️⃣ Prevent duplicate paid purchases
