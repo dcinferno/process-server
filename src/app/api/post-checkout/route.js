@@ -93,7 +93,7 @@ export async function GET(req) {
     const token = generateAccessToken();
 
     // Update purchase record
-    await Purchase.findByIdAndUpdate(
+    const purchase = await Purchase.findByIdAndUpdate(
       purchaseId,
       {
         status: "paid",

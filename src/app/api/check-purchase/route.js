@@ -20,7 +20,7 @@ export async function POST(req) {
   await connectDB();
 
   const purchase = await Purchase.findOne({
-    accessToken,
+    token,
     status: "paid",
     $or: [{ videoId }, { unlockedVideoIds: videoId }],
   });
