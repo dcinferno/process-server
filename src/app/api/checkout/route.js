@@ -149,8 +149,9 @@ export async function POST(req) {
           amount: price,
           basePrice: price,
           finalPrice: price,
-
-          creatorId: bundle.creatorId,
+          creatorName: bundle.creatorName,
+          creatorTelegramId: bundle.creatorTelegramId || "",
+          creatorUrl: bundle.creatorUrl || "",
           status: "pending",
           site,
         });
