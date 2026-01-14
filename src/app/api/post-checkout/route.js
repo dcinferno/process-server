@@ -109,7 +109,13 @@ export async function GET(req) {
     const redirectSite = SITE_MAP[site] ?? allowedOrigin;
 
     // Redirect user back to the actual front-end
-    const redirectUrl = `${redirectSite}/success?videoId=${videoId}&token=${token}`;
+    let redirectUrl;
+
+    if (purchase.type === "bundle") {
+      redirectUrl = `${redirectSite}/success?bundleId=${purchase.bundleId}&token=${token}`;
+    } else {
+      redirectUrl = `${redirectSite}/success?videoId=${purchase.videoId}&token=${token}`;
+    }
 
     // Safari-friendly redirect
     return new Response(null, {
