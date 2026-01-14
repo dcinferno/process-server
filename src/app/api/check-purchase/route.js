@@ -19,17 +19,11 @@ export async function POST(req) {
 
   await connectDB();
 
-  const query = {
-    accessToken: token,
+  const purchase = await Purchase.findOne({
+    accessToken,
     status: "paid",
-  };
-
-  // optional narrowing (keep this!)
-  if (videoId) {
-    query.videoId = videoId;
-  }
-
-  const purchase = await Purchase.findOne(query).lean();
+    $or: [{ videoId }, { unlockedVideoIds: videoId }],
+  });
 
   if (!purchase) {
     return Response.json({ success: false }, { status: 403 });

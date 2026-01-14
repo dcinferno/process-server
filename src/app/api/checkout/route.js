@@ -45,9 +45,12 @@ export async function POST(req) {
     // 0️⃣ Validate input
     // -------------------------
     if (!userId || (!videoId && !bundleId) || !site) {
-      return new Response("Missing fields", {
+      return new Response(JSON.stringify({ error: "Missing fields" }), {
         status: 400,
-        headers: corsHeaders(req),
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders(req),
+        },
       });
     }
 
@@ -62,31 +65,46 @@ export async function POST(req) {
       const bundleRes = await fetch(
         `${allowedOrigin}/api/bundle?id=${bundleId}`,
         {
-          headers: {
-            "x-internal-token": process.env.INTERNAL_API_TOKEN,
-          },
           cache: "no-store",
         }
       );
-
       if (!bundleRes.ok) {
-        return new Response("Invalid bundle", {
+        return new Response(JSON.stringify({ error: "Invalid bundle" }), {
           status: 400,
-          headers: corsHeaders(req),
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders(req),
+          },
         });
       }
 
-      const [bundle] = await bundleRes.json();
+      const bundleData = await bundleRes.json();
+      console.log(bundleData);
+      const bundle = Array.isArray(bundleData) ? bundleData[0] : bundleData;
 
-      if (
-        !bundle ||
-        !Array.isArray(bundle.videoIds) ||
-        bundle.videoIds.length === 0 ||
-        typeof bundle.price !== "number"
-      ) {
-        return new Response("Invalid bundle data", {
+      if (!bundle) {
+        return new Response(JSON.stringify({ error: "Invalid bundle" }), {
           status: 400,
-          headers: corsHeaders(req),
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders(req),
+          },
+        });
+      }
+
+      const videoIds = Array.isArray(bundle.videoIds)
+        ? bundle.videoIds.map((v) => v.toString())
+        : [];
+
+      const price = Number(bundle.price);
+
+      if (videoIds.length === 0 || Number.isNaN(price)) {
+        return new Response(JSON.stringify({ error: "Invalid bundle data" }), {
+          status: 400,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders(req),
+          },
         });
       }
 
@@ -127,10 +145,10 @@ export async function POST(req) {
           bundleId,
           type: "bundle",
 
-          unlockedVideoIds: bundle.videoIds,
-          amount: bundle.price,
-          basePrice: bundle.price,
-          finalPrice: bundle.price,
+          unlockedVideoIds: videoIds,
+          amount: price,
+          basePrice: price,
+          finalPrice: price,
 
           creatorId: bundle.creatorId,
           status: "pending",
@@ -306,9 +324,12 @@ export async function POST(req) {
   } catch (err) {
     console.error("❌ Checkout error:", err);
 
-    return new Response("Checkout Error", {
+    return new Response(JSON.stringify({ error: "Checkout Error" }), {
       status: 500,
-      headers: corsHeaders(req),
+      headers: {
+        "Content-Type": "application/json",
+        ...corsHeaders(req),
+      },
     });
   }
 }
