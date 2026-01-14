@@ -11,7 +11,7 @@ export async function POST(req) {
     return new Response("Forbidden", { status: 403 });
   }
 
-  const { token, videoId } = await req.json();
+  const { token } = await req.json();
 
   if (!token) {
     return Response.json({ success: false }, { status: 400 });
@@ -20,9 +20,8 @@ export async function POST(req) {
   await connectDB();
 
   const purchase = await Purchase.findOne({
-    token,
+    accessToken: token,
     status: "paid",
-    $or: [{ videoId }, { unlockedVideoIds: videoId }],
   });
 
   if (!purchase) {
