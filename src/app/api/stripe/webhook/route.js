@@ -172,7 +172,6 @@ export async function POST(req) {
     );
 
     const isBundle = updated.type === "bundle";
-    const isBundle = updated.type === "bundle";
 
     const displayTitle = isBundle
       ? `Bundle (${updated.unlockedVideoIds?.length || 0} videos)`
