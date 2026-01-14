@@ -126,11 +126,11 @@ export async function POST(req) {
   const rawMeta = session.metadata || {};
   const meta = normalizeMetadata(rawMeta, rawMeta.purchaseId);
 
-  const { purchaseId, videoId } = meta;
+  const { purchaseId } = meta;
 
-  if (!purchaseId || !videoId) {
-    console.error("❌ Missing safe metadata:", session.metadata);
-    return new Response("Missing metadata", { status: 400 });
+  if (!purchaseId) {
+    console.error("❌ Missing PurchaseId:", session.metadata);
+    return new Response("Missing PurchaseId", { status: 400 });
   }
 
   const amount = (session.amount_total ?? 0) / 100;
@@ -153,7 +153,6 @@ export async function POST(req) {
       return NextResponse.json({ received: true });
     }
 
-    // Update purchase safely (Stripe sees nothing NSFW)
     const updated = await Purchase.findByIdAndUpdate(
       purchaseId,
       {
@@ -172,22 +171,30 @@ export async function POST(req) {
       updated.creatorUrl
     );
 
+    const isBundle = updated.type === "bundle";
+
+    const displayTitle = isBundle
+      ? `Bundle (${updated.unlockedVideoIds?.length || 0} videos)`
+      : updated.videoTitle;
+
     // Send Telegram sale alert
     await sendTelegramSaleMessage({
       isTest,
       creatorTag,
-      videoTitle: updated.videoTitle,
+      videoTitle: displayTitle,
       amount,
     });
 
     try {
-      await postTweet(
-        formatSaleTweet({
-          creatorName: updated.creatorName,
-          title: updated.videoTitle,
-          url: `${process.env.NEXT_PUBLIC_FRONTEND_URL}/?video=${updated.videoId}`,
-        })
-      );
+      if (!isBundle) {
+        await postTweet(
+          formatSaleTweet({
+            creatorName: updated.creatorName,
+            title: existing.videoTitle,
+            url: `${process.env.NEXT_PUBLIC_FRONTEND_URL}/?video=${existing.videoId}`,
+          })
+        );
+      }
     } catch {
       // intentionally empty
     }
