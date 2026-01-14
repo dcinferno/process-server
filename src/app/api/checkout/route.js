@@ -79,7 +79,6 @@ export async function POST(req) {
       }
 
       const bundleData = await bundleRes.json();
-      console.log(bundleData);
       const bundle = Array.isArray(bundleData) ? bundleData[0] : bundleData;
 
       if (!bundle) {
@@ -267,7 +266,7 @@ export async function POST(req) {
         userId,
         videoId,
         videoTitle: video.title,
-
+        type: "video",
         creatorName: video.creatorName,
         creatorTelegramId: video.creatorTelegramId,
         creatorUrl: video.socialMediaUrl,

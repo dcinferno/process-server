@@ -39,9 +39,6 @@ const PurchaseSchema = new mongoose.Schema(
     bundleId: {
       type: String,
       index: true,
-      required: function () {
-        return this.type === "bundle";
-      },
     },
 
     // Videos unlocked by a bundle
