@@ -3,6 +3,11 @@ import Purchase from "../../../lib/models/Purchase";
 import { connectDB } from "../../../lib/db";
 
 export async function GET(req) {
+    const internalToken = req.headers.get("x-internal-secret");
+
+  if (!internalToken || internalToken !== process.env.INTERNAL_API_TOKEN) {
+    return new Response("Unauthorized", { status: 401 });
+  }
   try {
     await connectDB();
 
