@@ -60,7 +60,7 @@ export async function PATCH(request, { params }) {
     const updateData = {};
 
     // Validate and update name
-    if (name !== undefined) {
+    if (name) {
       if (!name?.trim()) {
         return NextResponse.json(
           { success: false, error: "Name cannot be empty" },
@@ -85,7 +85,7 @@ export async function PATCH(request, { params }) {
 
     // Validate and map type enum (percent -> percentage)
     let mappedType = existingDiscount.type; // Default to existing type
-    if (type !== undefined) {
+    if (type) {
       const typeMap = {
         percent: "percentage",
         fixed: "fixed",
@@ -171,7 +171,7 @@ export async function PATCH(request, { params }) {
     }
 
     // Handle scope and map to creators array
-    if (scope !== undefined) {
+    if (scope) {
       if (scope !== "global" && scope !== "creator") {
         return NextResponse.json(
           { success: false, error: "scope must be 'global' or 'creator'" },
@@ -180,7 +180,7 @@ export async function PATCH(request, { params }) {
       }
 
       if (scope === "creator") {
-        const finalCreatorName = creatorName !== undefined ? creatorName : existingDiscount.creators[0];
+        const finalCreatorName = creatorName ? creatorName : existingDiscount.creators[0];
 
         if (!finalCreatorName?.trim()) {
           return NextResponse.json(
@@ -220,7 +220,7 @@ export async function PATCH(request, { params }) {
     let startsAtDate = existingDiscount.startsAt;
     let endsAtDate = existingDiscount.endsAt;
 
-    if (startsAt !== undefined) {
+    if (startsAt) {
       startsAtDate = new Date(startsAt);
       if (isNaN(startsAtDate.getTime())) {
         return NextResponse.json(
@@ -231,7 +231,7 @@ export async function PATCH(request, { params }) {
       updateData.startsAt = startsAtDate;
     }
 
-    if (endsAt !== undefined) {
+    if (endsAt) {
       endsAtDate = new Date(endsAt);
       if (isNaN(endsAtDate.getTime())) {
         return NextResponse.json(
@@ -289,6 +289,11 @@ export async function PATCH(request, { params }) {
     );
   } catch (err) {
     console.error("Error updating discount:", err);
+    console.error("Error details:", {
+      name: err.name,
+      message: err.message,
+      stack: err.stack,
+    });
 
     // Handle invalid MongoDB ObjectId
     if (err.name === "CastError" && err.kind === "ObjectId") {
@@ -299,7 +304,7 @@ export async function PATCH(request, { params }) {
     }
 
     return NextResponse.json(
-      { success: false, error: "Server error" },
+      { success: false, error: "Server error", details: err.message },
       { status: 500 }
     );
   }
