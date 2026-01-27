@@ -29,6 +29,7 @@ export async function GET() {
 
   for (const d of discounts) {
     const payload = {
+      _id: d._id,
       name: d.name,
       type: d.type, // percentage | fixed | amount
       percentOff: d.percentOff ?? null,
@@ -36,6 +37,8 @@ export async function GET() {
       amountOff: d.amountOff ?? null,
       tags:
         Array.isArray(d.tags) && d.tags.length ? d.tags.map(normalize) : null,
+      startsAt: d.startsAt,
+      endsAt: d.endsAt,
     };
 
     // -----------------------------------
