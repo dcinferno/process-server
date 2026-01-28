@@ -20,7 +20,7 @@ export async function PATCH(request, { params }) {
     }
 
     // 2. Get discount ID from params
-    const { id } = params;
+    const { id } = await params;
     if (!id) {
       return NextResponse.json(
         { success: false, error: "Discount ID is required" },
