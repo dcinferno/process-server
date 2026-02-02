@@ -42,7 +42,7 @@ export async function POST(req) {
   // --------------------------------------------------
   // 1️⃣ Fetch SINGLE priced video (source of truth)
   // --------------------------------------------------
-  const videoRes = await fetch(`${allowedOrigin}/api/videos/${videoId}`);
+  const videoRes = await fetch(`${allowedOrigin}/api/internal/videos/${videoId}`);
   if (!videoRes.ok) {
     return new Response("Video not found", { status: 404 });
   }
