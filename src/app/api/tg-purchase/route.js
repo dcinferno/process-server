@@ -85,7 +85,7 @@ export async function POST(req) {
       userId: anonUserId,
       videoId,
       videoTitle: video.title,
-
+      type: "video",
       creatorName: video.creatorName,
       creatorTelegramId: video.creatorTelegramId,
       creatorUrl: video.socialMediaUrl,
