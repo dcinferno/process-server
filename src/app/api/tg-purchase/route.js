@@ -42,7 +42,9 @@ export async function POST(req) {
   // --------------------------------------------------
   // 1️⃣ Fetch SINGLE priced video (source of truth)
   // --------------------------------------------------
-  const videoRes = await fetch(`${allowedOrigin}/api/internal/videos/${videoId}`);
+  const videoRes = await fetch(`${allowedOrigin}/api/internal/videos/${videoId}`, {
+    headers: { "x-internal-secret": process.env.INTERNAL_API_TOKEN },
+  });
   if (!videoRes.ok) {
     return new Response("Video not found", { status: 404 });
   }
