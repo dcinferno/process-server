@@ -207,8 +207,9 @@ export async function POST(req) {
     // -------------------------
     // 2️⃣ Fetch SINGLE video (already priced)
     // -------------------------
-    const videoRes = await fetch(`${allowedOrigin}/api/videos/${videoId}`, {
+    const videoRes = await fetch(`${allowedOrigin}/api/internal/videos/${videoId}`, {
       cache: "no-store",
+      headers: { "x-internal-secret": process.env.INTERNAL_API_TOKEN },
     });
 
     if (!videoRes.ok) {
