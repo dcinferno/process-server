@@ -58,7 +58,7 @@ async function sendTelegramSaleMessage({
   amount,
 }) {
   const safeTitle = escapeHtml(videoTitle);
-  const safeTime = escapeHtml(new Date().toLocaleTimeString());
+  const safeTime = escapeHtml(new Date().toLocaleTimeString('en-US', { timeZone: 'America/Chicago' }));
   const groupChat = isTest
     ? process.env.TEST_GROUP_ID
     : process.env.SALES_GROUP_ID;
