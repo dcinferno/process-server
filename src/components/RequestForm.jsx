@@ -142,6 +142,7 @@ export default function RequestForm() {
           <option value="Today">Today (ASAP) - $150</option>
           <option value="Rush">Rush (1-2 business days) - $60</option>
           <option value="Regular">Regular (3-5 business days) - $40</option>
+          <option value="Flexible">Flexible</option>
         </select>
       </div>
 
