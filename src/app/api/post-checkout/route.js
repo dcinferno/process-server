@@ -68,6 +68,14 @@ export async function GET(req) {
     // Retrieve Checkout Session
     const session = await stripe.checkout.sessions.retrieve(sessionId);
 
+    // Check if payment was successful
+    if (session.payment_status !== 'paid') {
+      console.error("❌ Payment not completed for session:", sessionId);
+      return new Response(null, {
+        status: 404,
+      });
+    }
+
     // Normalize metadata safely
     const meta = normalizeMetadata(session.metadata);
 
@@ -77,19 +85,11 @@ export async function GET(req) {
     if (!purchaseId || !videoId) {
       console.error("❌ Invalid metadata in post-checkout:", session.metadata);
       // STILL redirect user — never trap a paid customer
-    } else {
-      // Idempotent update
-      await Purchase.findByIdAndUpdate(
-        purchaseId,
-        {
-          status: "paid",
-          email,
-          paidAt: new Date(),
-          stripeSessionId: sessionId,
-        },
-        { new: true }
-      );
+      return new Response(null, {
+        status: 404,
+      });
     }
+
     const token = generateAccessToken();
 
     // Update purchase record
@@ -132,13 +132,7 @@ export async function GET(req) {
 
     // Last-resort redirect (never dead-end user)
     return new Response(null, {
-      status: 302,
-      headers: {
-        Location: `${allowedOrigin}/success`,
-        "Access-Control-Allow-Origin": allowedOrigin,
-        "Access-Control-Allow-Credentials": "true",
-        Vary: "Origin",
-      },
+      status: 404,
     });
   }
 }
