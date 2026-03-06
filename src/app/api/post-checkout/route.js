@@ -68,16 +68,22 @@ export async function GET(req) {
     // Retrieve Checkout Session
     const session = await stripe.checkout.sessions.retrieve(sessionId);
 
+    // Normalize metadata safely
+    const meta = normalizeMetadata(session.metadata);
+
     // Check if payment was successful
     if (session.payment_status !== 'paid') {
       console.error("❌ Payment not completed for session:", sessionId);
+
+      // Update purchase status to denied for analysis
+      if (meta.purchaseId) {
+        await Purchase.findByIdAndUpdate(meta.purchaseId, { status: "denied" });
+      }
+
       return new Response(null, {
         status: 404,
       });
     }
-
-    // Normalize metadata safely
-    const meta = normalizeMetadata(session.metadata);
 
     const { purchaseId, videoId, site } = meta;
     const email = session.customer_details?.email || "";
