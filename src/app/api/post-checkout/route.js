@@ -104,7 +104,7 @@ export async function GET(req) {
       {
         status: "paid",
         email,
-        paidAt: new Date(),
+        purchasedAt: new Date(),
         accessToken: token,
         accessTokenExpiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
         stripeSessionId: sessionId,
