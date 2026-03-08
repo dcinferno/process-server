@@ -2,7 +2,6 @@
   "name": "process-server",
   "version": "0.4.0",
   "private": true,
-  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
