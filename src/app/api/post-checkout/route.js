@@ -65,24 +65,27 @@ export async function GET(req) {
   try {
     await connectDB();
 
-    // Retrieve Checkout Session
     const session = await stripe.checkout.sessions.retrieve(sessionId);
 
     // Normalize metadata safely
     const meta = normalizeMetadata(session.metadata);
 
-    // Check if payment was successful
-    if (session.payment_status !== 'paid') {
-      console.error("❌ Payment not completed for session:", sessionId);
-
-      // Update purchase status to denied for analysis
+    // Check if payment was successful — fall back to DB record if Stripe reports unpaid
+    if (session.payment_status !== "paid") {
+      let dbPurchase = null;
       if (meta.purchaseId) {
-        await Purchase.findByIdAndUpdate(meta.purchaseId, { status: "denied" });
+        dbPurchase = await Purchase.findById(meta.purchaseId).lean();
       }
 
-      return new Response(null, {
-        status: 404,
-      });
+      if (dbPurchase?.status !== "paid") {
+        console.error("❌ Payment not completed for session:", sessionId);
+        if (meta.purchaseId) {
+          await Purchase.findByIdAndUpdate(meta.purchaseId, { status: "denied" });
+        }
+        return new Response(null, { status: 404 });
+      }
+
+      console.warn("⚠️ Stripe unpaid but DB shows paid — proceeding for purchaseId:", meta.purchaseId);
     }
 
     const { purchaseId, videoId, site } = meta;
